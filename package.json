@@ -1,0 +1,12 @@
+{
+  "name": "ctf-training-app",
+  "version": "1.0.0",
+  "description": "CTF Training Web App for Tier 2 Support Teams",
+  "private": true,
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0"
+  },
+  "engines": {
+    "node": "18.x"
+  }
+}

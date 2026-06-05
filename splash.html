@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>STURNUS</title>
+  <!-- Apply VHS background immediately from localStorage to prevent flash -->
+  <script>
+    (function() {
+      try {
+        if (localStorage.getItem('lastTheme') === 'vhs') {
+          document.documentElement.style.setProperty('--splash-bg', '#0d0015');
+          document.documentElement.style.setProperty('--splash-title', '#ea80fc');
+          document.documentElement.style.setProperty('--splash-sub', '#4a1a80');
+          document.documentElement.style.setProperty('--splash-prompt', '#2d0f60');
+          document.documentElement.style.setProperty('--splash-pixel', '#e040fb');
+        }
+      } catch(e) {}
+    })();
+  </script>
+  <style>
+    :root {
+      --splash-bg:     #0e0e0e;
+      --splash-title:  #d4b483;
+      --splash-sub:    #555;
+      --splash-prompt: #3a3a3a;
+      --splash-pixel:  #8fbc5a;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--splash-bg);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Courier New', Consolas, monospace;
+      overflow: hidden;
+      cursor: pointer;
+      transition: background 0.05s;
+    }
+
+    #splash {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 22px;
+      animation: appear 1.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    @keyframes appear {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    #splash.out {
+      animation: disappear 0.65s ease forwards !important;
+    }
+
+    @keyframes disappear {
+      to { opacity: 0; transform: translateY(-10px); }
+    }
+
+    canvas {
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+
+    #title {
+      font-size: 80px;
+      font-weight: bold;
+      letter-spacing: 28px;
+      text-indent: 28px;
+      color: var(--splash-title);
+      line-height: 1;
+    }
+
+    #tagline {
+      font-size: 16px;
+      letter-spacing: 2px;
+      color: var(--splash-sub);
+      text-transform: uppercase;
+      text-align: center;
+      max-width: 560px;
+      line-height: 2;
+    }
+
+    #prompt {
+      font-size: 14px;
+      letter-spacing: 2px;
+      text-indent: 2px;
+      color: var(--splash-prompt);
+      text-transform: uppercase;
+      margin-top: 4px;
+      animation: blink 2.8s step-end infinite;
+    }
+
+    @keyframes blink { 80% { opacity: 1; } 85% { opacity: 0; } 95% { opacity: 0; } 100% { opacity: 1; } }
+  </style>
+</head>
+<body>
+
+<div id="splash">
+  <canvas id="graphic"></canvas>
+  <div id="title">STURNUS</div>
+  <div id="tagline">Simulated Ticket Utility for Root-cause Navigation and User Support</div>
+  <div id="prompt">press any key to continue _</div>
+</div>
+
+<script>
+// ── Pixel art: perched starling ───────────────────────────────────────────────
+const BIRD = [
+  "00000111110000000000",
+  "00001111111000000000",
+  "00111110111100000000",
+  "01111111111110000000",
+  "00111111111111110000",
+  "00011111111111111100",
+  "00001111111111111110",
+  "00001111111111111110",
+  "00001111111111110000",
+  "00000111111110000000",
+  "00000011111000000000",
+  "00000001001000000000",
+  "00000001001000000000",
+  "00000011101100000000",
+];
+
+// ── Pixel art: VHS cassette ───────────────────────────────────────────────────
+// Front view: body with two reels + tape slot below
+const VHS_TAPE = [
+  "11111111111111111111",  //  0  top border
+  "10000000000000000001",  //  1  sides
+  "10000000000000000001",  //  2  sides
+  "10111100000011110001",  //  3  left reel + right reel (4px wide each)
+  "10100100000010010001",  //  4  reel centres (holes)
+  "10100100000010010001",  //  5  reel centres
+  "10111100000011110001",  //  6  reel bottom
+  "10000000000000000001",  //  7  sides
+  "10000000000000000001",  //  8  sides
+  "11111111111111111111",  //  9  bottom border
+  "00111111111111111100",  // 10  tape slot
+  "00111111111111111100",  // 11  tape slot
+  "00001111111111110000",  // 12  tape guide (narrower)
+];
+
+// ── Theme detection ───────────────────────────────────────────────────────────
+const theme = (function() {
+  try { var d=(window.location.hostname.includes('vhs')||window.location.hostname.endsWith('bekind.support'))?'vhs':'sturnus'; return localStorage.getItem('lastTheme')||d; } catch(e) { return 'sturnus'; }
+})();
+
+const isVHS = theme === 'vhs';
+
+// Update text and title
+if (isVHS) {
+  document.getElementById('title').textContent   = 'V.H.S.';
+  document.getElementById('tagline').textContent = 'Virtual Helpdesk Simulator';
+  document.title = 'V.H.S.';
+}
+
+// ── Draw graphic ──────────────────────────────────────────────────────────────
+const PIXELS  = isVHS ? VHS_TAPE : BIRD;
+const PIXEL   = 14;
+const GAP     = 1;
+const COLOR   = isVHS ? '#e040fb' : '#8fbc5a';
+
+const canvas = document.getElementById('graphic');
+const ctx    = canvas.getContext('2d');
+canvas.width  = PIXELS[0].length * PIXEL;
+canvas.height = PIXELS.length    * PIXEL;
+
+PIXELS.forEach((row, r) => {
+  setTimeout(() => {
+    ctx.fillStyle = COLOR;
+    for (let c = 0; c < row.length; c++) {
+      if (row[c] === '1') {
+        ctx.fillRect(c * PIXEL, r * PIXEL, PIXEL - GAP, PIXEL - GAP);
+      }
+    }
+  }, r * 40);
+});
+
+// ── Navigate ──────────────────────────────────────────────────────────────────
+function leave() {
+  document.getElementById('splash').classList.add('out');
+  setTimeout(() => { window.location.href = 'login.html'; }, 650);
+}
+
+document.addEventListener('keydown', leave, { once: true });
+document.addEventListener('click',   leave, { once: true });
+</script>
+
+</body>
+</html>

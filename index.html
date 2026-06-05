@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>STURNUS — Dashboard</title>
+  <link rel="stylesheet" href="css/app.css">
+  <!-- Theme pre-loader: runs before first paint to prevent flash -->
+  <link id="theme-css" rel="stylesheet" href="">
+  <script>(function(){try{var d=(window.location.hostname.includes("vhs")||window.location.hostname.endsWith("bekind.support"))?"vhs":"sturnus";var t=localStorage.getItem("lastTheme")||d;if(t==="vhs")document.getElementById("theme-css").href="css/theme-vhs.css";document.documentElement.dataset.themeLoading="1";}catch(e){}})()</script>
+</head>
+<body>
+
+<!-- Nav -->
+<nav class="nav">
+  <a href="index.html" class="nav-brand">
+    <span class="nav-brand-icon-wrap"><svg class="nav-brand-icon" viewBox="0 0 10 8" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="0" width="3" height="1"/><rect x="2" y="1" width="5" height="1"/><rect x="1" y="2" width="5" height="1"/><rect x="0" y="3" width="6" height="1"/><rect x="1" y="4" width="9" height="1"/><rect x="1" y="5" width="8" height="1"/><rect x="2" y="6" width="5" height="1"/><rect x="3" y="7" width="1" height="1"/><rect x="5" y="7" width="1" height="1"/></svg></span>
+    <span class="nav-brand-name">STURNUS</span>
+  </a>
+  <div class="nav-spacer"></div>
+  <div class="nav-info">
+    <span class="nav-handle" id="nav-handle">…</span>
+    <span class="nav-dot">·</span>
+    <span class="nav-score" id="nav-score">0 pts</span>
+  </div>
+  <a href="admin.html" class="nav-link admin-link" id="nav-admin" style="display:none">Admin</a>
+  <button class="nav-link" id="nav-logout">Sign out</button>
+</nav>
+
+<!-- Content -->
+<div class="container">
+  <div class="page-header">
+    <h1>Challenges</h1>
+    <p>Work through each ticket. Earn points for correct answers — hints cost points.</p>
+  </div>
+
+  <div class="two-col">
+    <!-- Challenge list -->
+    <div>
+      <div id="challenges-loading" class="loading-state">
+        <div class="spinner"></div> Loading challenges…
+      </div>
+
+      <!-- Sort + counts -->
+      <div id="challenge-controls" class="hidden" style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+        <span class="text-muted text-sm">Sort:</span>
+        <button class="btn btn-ghost btn-sm sort-btn active" data-sort="id">By ID</button>
+        <button class="btn btn-ghost btn-sm sort-btn" data-sort="points">By Points</button>
+        <span class="text-muted text-sm" style="margin-left:auto;" id="ch-summary"></span>
+      </div>
+
+      <!-- Unsolved -->
+      <div id="unsolved-section">
+        <div class="section-label" id="unsolved-label"></div>
+        <div class="challenge-list" id="unsolved-list"></div>
+      </div>
+
+      <!-- Solved -->
+      <div id="solved-section" class="hidden">
+        <div class="section-label" style="margin-top:20px;" id="solved-label"></div>
+        <div class="challenge-list" id="solved-list"></div>
+      </div>
+
+      <div id="no-challenges" class="hidden" style="padding:40px 0;text-align:center;color:var(--text-muted);">
+        No active challenges yet. Check back soon.
+      </div>
+    </div>
+
+    <!-- Leaderboard -->
+    <div>
+      <div class="card">
+        <div class="card-header">
+          <h2>🏆 Leaderboard</h2>
+          <span class="text-muted text-sm" id="lb-count"></span>
+        </div>
+        <div id="lb-loading" class="loading-state">
+          <div class="spinner"></div>
+        </div>
+        <div class="leaderboard" id="leaderboard"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/themes.js"></script>
+<script src="js/auth.js"></script>
+<script>
+(async () => {
+  const ctx = await Auth.requireAuth();
+  if (!ctx) return;
+
+  Auth.populateNav(ctx.profile);
+
+  // ── Challenges ──────────────────────────────────────────────────────────────
+
+  const [challengesRes, submissionsRes] = await Promise.all([
+    _supabase
+      .from('challenges')
+      .select('id, title, questions, active')
+      .eq('active', true)
+      .order('created_at', { ascending: true }),
+    _supabase
+      .from('submissions')
+      .select('challenge_id, score_earned')
+      .eq('user_id', ctx.user.id)
+  ]);
+
+  const challenges  = challengesRes.data  || [];
+  const submissions = submissionsRes.data || [];
+  const doneIds = new Set(submissions.map(s => s.challenge_id));
+
+  document.getElementById('challenges-loading').style.display = 'none';
+
+  if (!challenges.length) {
+    document.getElementById('no-challenges').classList.remove('hidden');
+  } else {
+    document.getElementById('challenge-controls').classList.remove('hidden');
+    document.getElementById('challenge-controls').style.display = 'flex';
+
+    let sortMode = 'id';
+
+    function totalPts(ch) {
+      return (ch.questions || []).reduce((s, q) => s + (q.points || 0), 0);
+    }
+
+    function makeCard(ch) {
+      const done = doneIds.has(ch.id);
+      const pts  = totalPts(ch);
+      const card = document.createElement('a');
+      card.href      = `challenge.html?id=${encodeURIComponent(ch.id)}`;
+      card.className = `challenge-card${done ? ' completed' : ''}`;
+      card.innerHTML = `
+        <span class="challenge-card-id">${escHtml(ch.id)}</span>
+        <div class="challenge-card-info">
+          <div class="challenge-card-title">${escHtml(ch.title)}</div>
+          <div class="challenge-card-meta">${pts} pts · ${(ch.questions||[]).length} question${(ch.questions||[]).length!==1?'s':''}</div>
+        </div>
+        <div class="challenge-card-right">
+          ${done
+            ? '<span class="badge badge-success">✓ Solved</span>'
+            : '<span class="badge badge-muted">Unsolved</span>'
+          }
+          <span class="pts-badge">${pts} pts</span>
+        </div>
+      `;
+      return card;
+    }
+
+    function renderChallenges() {
+      const sorted = [...challenges].sort((a, b) => {
+        if (sortMode === 'points') return totalPts(b) - totalPts(a);
+        return a.id.localeCompare(b.id);
+      });
+
+      const unsolved = sorted.filter(ch => !doneIds.has(ch.id));
+      const solved   = sorted.filter(ch =>  doneIds.has(ch.id));
+
+      // Summary
+      document.getElementById('ch-summary').textContent =
+        `${solved.length}/${challenges.length} solved`;
+
+      // Unsolved
+      const unsolvedList = document.getElementById('unsolved-list');
+      document.getElementById('unsolved-label').textContent =
+        `Unsolved — ${unsolved.length}`;
+      unsolvedList.innerHTML = '';
+      unsolved.forEach(ch => unsolvedList.appendChild(makeCard(ch)));
+
+      // Solved
+      const solvedSection = document.getElementById('solved-section');
+      const solvedList    = document.getElementById('solved-list');
+      if (solved.length) {
+        solvedSection.classList.remove('hidden');
+        document.getElementById('solved-label').textContent =
+          `Solved — ${solved.length}`;
+        solvedList.innerHTML = '';
+        solved.forEach(ch => solvedList.appendChild(makeCard(ch)));
+      } else {
+        solvedSection.classList.add('hidden');
+      }
+    }
+
+    renderChallenges();
+
+    // Sort buttons
+    document.querySelectorAll('.sort-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        sortMode = btn.dataset.sort;
+        document.querySelectorAll('.sort-btn').forEach(b =>
+          b.classList.toggle('active', b === btn));
+        renderChallenges();
+      });
+    });
+  }
+
+  // ── Leaderboard ─────────────────────────────────────────────────────────────
+
+  const { data: lb } = await _supabase
+    .from('profiles')
+    .select('id, handle, score')
+    .eq('theme', ctx.profile.theme)
+    .order('score', { ascending: false })
+    .limit(20);
+
+  document.getElementById('lb-loading').style.display = 'none';
+
+  const lbEl = document.getElementById('leaderboard');
+  if (!lb || !lb.length) {
+    lbEl.innerHTML = '<div class="loading-state text-muted">No scores yet.</div>';
+  } else {
+    document.getElementById('lb-count').textContent = lb.length + ' players';
+    lb.forEach((entry, i) => {
+      const rank = i + 1;
+      const isMe = entry.id === ctx.user.id;
+      const rankClass = rank === 1 ? 'gold' : rank === 2 ? 'silver' : rank === 3 ? 'bronze' : '';
+
+      const row = document.createElement('div');
+      row.className = `leaderboard-row${isMe ? ' me' : ''}`;
+      row.innerHTML = `
+        <span class="lb-rank ${rankClass}">${rank}</span>
+        <span class="lb-handle${isMe ? ' me' : ''}">${escHtml(entry.handle)}</span>
+        <span class="lb-score">${entry.score.toLocaleString()}</span>
+      `;
+      lbEl.appendChild(row);
+    });
+  }
+
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+})();
+</script>
+</body>
+</html>

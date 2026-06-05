@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Set Up Your Profile — STURNUS</title>
+  <link rel="stylesheet" href="css/app.css">
+  <!-- Theme pre-loader: runs before first paint to prevent flash -->
+  <link id="theme-css" rel="stylesheet" href="">
+  <script>(function(){try{var d=(window.location.hostname.includes("vhs")||window.location.hostname.endsWith("bekind.support"))?"vhs":"sturnus";var t=localStorage.getItem("lastTheme")||d;if(t==="vhs")document.getElementById("theme-css").href="css/theme-vhs.css";document.documentElement.dataset.themeLoading="1";}catch(e){}})()</script>
+</head>
+<body>
+<div class="auth-page">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="auth-logo-icon" style="background:transparent;padding:0;">
+        <svg viewBox="0 0 10 8" width="30" height="24" fill="#8fbc5a" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="0" width="3" height="1"/><rect x="2" y="1" width="5" height="1"/><rect x="1" y="2" width="5" height="1"/><rect x="0" y="3" width="6" height="1"/><rect x="1" y="4" width="9" height="1"/><rect x="1" y="5" width="8" height="1"/><rect x="2" y="6" width="5" height="1"/><rect x="3" y="7" width="1" height="1"/><rect x="5" y="7" width="1" height="1"/></svg>
+      </div>
+      <div>
+        <div class="auth-logo-text">STURNUS</div>
+        <div class="auth-logo-sub">Create your anonymous identity</div>
+      </div>
+    </div>
+
+    <div id="alert-area"></div>
+
+    <div id="setup-form">
+      <div class="alert alert-info mb-16">
+        <p>Choose a handle — this name appears on the public leaderboard instead of your email. Pick something fun.</p>
+      </div>
+
+      <div class="form-group">
+        <label for="handle">
+          Handle
+          <span class="label-hint">letters, numbers, hyphens — 3–24 characters</span>
+        </label>
+        <input
+          type="text"
+          id="handle"
+          placeholder="e.g. ghost-runner, l33t-tier2"
+          maxlength="24"
+          autocomplete="off"
+          autocorrect="off"
+          spellcheck="false"
+        >
+      </div>
+
+      <div class="form-group">
+        <label for="new-password">
+          Set a password
+          <span class="label-hint">optional — you can always use magic links instead</span>
+        </label>
+        <input type="password" id="new-password" placeholder="At least 8 characters" autocomplete="new-password">
+      </div>
+
+      <button id="btn-save" class="btn btn-primary btn-block btn-lg">
+        Join the leaderboard
+      </button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/themes.js"></script>
+<script src="js/auth.js"></script>
+<script>
+(async () => {
+  const alertArea = document.getElementById('alert-area');
+
+  function showAlert(msg, type = 'danger') {
+    alertArea.innerHTML = `<div class="alert alert-${type}"><p>${msg}</p></div>`;
+  }
+
+  // Wait for Supabase to exchange the token in the URL hash (invite/magic link)
+  // detectSessionInUrl: true (set in config.js) handles this automatically on getSession()
+  const { data: { session } } = await _supabase.auth.getSession();
+
+  if (!session) {
+    showAlert('No active session found. Please use the link from your invite email, or <a href="login.html">sign in</a>.');
+    document.getElementById('setup-form').classList.add('hidden');
+    return;
+  }
+
+  const user = session.user;
+
+  // Apply theme immediately based on email domain
+  const detectedTheme = (user.email || '').endsWith('@murmuration.org') ? 'sturnus' : 'vhs';
+  if (typeof applyTheme === 'function') applyTheme(detectedTheme);
+
+  // Check if profile already exists — if so, they don't need setup
+  const { data: existing } = await _supabase
+    .from('profiles')
+    .select('id')
+    .eq('id', user.id)
+    .single();
+
+  if (existing) {
+    window.location.href = 'index.html';
+    return;
+  }
+
+  const handleRe = /^[a-zA-Z0-9][a-zA-Z0-9\-]{1,22}[a-zA-Z0-9]$|^[a-zA-Z0-9]{3}$/;
+
+  document.getElementById('btn-save').addEventListener('click', async () => {
+    const handle   = document.getElementById('handle').value.trim();
+    const password = document.getElementById('new-password').value;
+
+    if (!handle) { showAlert('Please choose a handle.'); return; }
+    if (!handleRe.test(handle)) {
+      showAlert('Handle must be 3–24 characters and contain only letters, numbers, and hyphens.');
+      return;
+    }
+    if (password && password.length < 8) {
+      showAlert('Password must be at least 8 characters.');
+      return;
+    }
+
+    const btn = document.getElementById('btn-save');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Saving…';
+
+    // Optionally update password
+    if (password) {
+      const { error: passErr } = await _supabase.auth.updateUser({ password });
+      if (passErr) {
+        showAlert(passErr.message);
+        btn.disabled = false;
+        btn.textContent = 'Join the leaderboard';
+        return;
+      }
+    }
+
+    // Auto-assign theme: murmuration.org → sturnus, everyone else → vhs
+    const theme = (user.email || '').endsWith('@murmuration.org') ? 'sturnus' : 'vhs';
+
+    // Create profile
+    const { error: profileErr } = await _supabase.from('profiles').insert({
+      id:     user.id,
+      handle: handle,
+      role:   'user',
+      score:  0,
+      theme:  theme
+    });
+
+    if (profileErr) {
+      const msg = profileErr.code === '23505'
+        ? 'That handle is already taken — try another.'
+        : profileErr.message;
+      showAlert(msg);
+      btn.disabled = false;
+      btn.textContent = 'Join the leaderboard';
+      return;
+    }
+
+    window.location.href = 'index.html';
+  });
+
+  document.getElementById('handle').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') document.getElementById('btn-save').click();
+  });
+})();
+</script>
+</body>
+</html>

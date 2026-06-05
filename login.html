@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign In — STURNUS</title>
+  <link rel="stylesheet" href="css/app.css">
+  <!-- Theme pre-loader: runs before first paint to prevent flash -->
+  <link id="theme-css" rel="stylesheet" href="">
+  <script>(function(){try{var d=(window.location.hostname.includes("vhs")||window.location.hostname.endsWith("bekind.support"))?"vhs":"sturnus";var t=localStorage.getItem("lastTheme")||d;if(t==="vhs")document.getElementById("theme-css").href="css/theme-vhs.css";document.documentElement.dataset.themeLoading="1";}catch(e){}})()</script>
+</head>
+<body>
+<div class="auth-page">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="auth-logo-icon" style="background:transparent;padding:0;">
+        <svg viewBox="0 0 10 8" width="30" height="24" fill="#8fbc5a" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="0" width="3" height="1"/><rect x="2" y="1" width="5" height="1"/><rect x="1" y="2" width="5" height="1"/><rect x="0" y="3" width="6" height="1"/><rect x="1" y="4" width="9" height="1"/><rect x="1" y="5" width="8" height="1"/><rect x="2" y="6" width="5" height="1"/><rect x="3" y="7" width="1" height="1"/><rect x="5" y="7" width="1" height="1"/></svg>
+      </div>
+      <div>
+        <div class="auth-logo-text">STURNUS</div>
+        <div class="auth-logo-sub">Technical Support Training</div>
+      </div>
+    </div>
+
+    <div id="alert-area"></div>
+
+    <!-- Password login form -->
+    <div id="form-password">
+      <div class="form-group">
+        <label for="email">Email address</label>
+        <input type="email" id="email" placeholder="you@company.com" autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" placeholder="••••••••" autocomplete="current-password">
+      </div>
+      <button id="btn-signin" class="btn btn-primary btn-block btn-lg">Sign in</button>
+
+      <div class="auth-divider">or</div>
+      <button id="btn-show-magic" class="btn btn-secondary btn-block">Email me a magic link</button>
+    </div>
+
+    <!-- Magic link form -->
+    <div id="form-magic" class="hidden">
+      <p class="text-muted text-sm mb-16">Enter your email and we'll send a one-time sign-in link. This is how invited accounts log in the first time.</p>
+      <div class="form-group">
+        <label for="magic-email">Email address</label>
+        <input type="email" id="magic-email" placeholder="you@company.com" autocomplete="email">
+      </div>
+      <button id="btn-magic" class="btn btn-primary btn-block btn-lg">Send magic link</button>
+      <div class="auth-divider">or</div>
+      <button id="btn-show-password" class="btn btn-secondary btn-block">Sign in with password</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/themes.js"></script>
+<script>
+  // Apply last-used theme immediately so returning users see the right branding
+  try { var _d=(window.location.hostname.includes('vhs')||window.location.hostname.endsWith('bekind.support'))?'vhs':'sturnus'; applyTheme(localStorage.getItem('lastTheme')||_d); } catch(e) {}
+</script>
+<script src="js/auth.js"></script>
+<script>
+(async () => {
+  // If already authenticated with a profile, go straight to the app
+  await Auth.redirectIfLoggedIn('index.html');
+
+  const alertArea  = document.getElementById('alert-area');
+  const formPass   = document.getElementById('form-password');
+  const formMagic  = document.getElementById('form-magic');
+
+  function showAlert(msg, type = 'danger') {
+    alertArea.innerHTML = `<div class="alert alert-${type}"><p>${msg}</p></div>`;
+  }
+  function clearAlert() { alertArea.innerHTML = ''; }
+
+  // Toggle between forms
+  document.getElementById('btn-show-magic').addEventListener('click', () => {
+    formPass.classList.add('hidden');
+    formMagic.classList.remove('hidden');
+    clearAlert();
+  });
+  document.getElementById('btn-show-password').addEventListener('click', () => {
+    formMagic.classList.add('hidden');
+    formPass.classList.remove('hidden');
+    clearAlert();
+  });
+
+  // Password sign-in
+  document.getElementById('btn-signin').addEventListener('click', async () => {
+    const email    = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
+    if (!email || !password) { showAlert('Please enter your email and password.'); return; }
+
+    const btn = document.getElementById('btn-signin');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Signing in…';
+    clearAlert();
+
+    const { error } = await _supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      showAlert(error.message);
+      btn.disabled = false;
+      btn.textContent = 'Sign in';
+      return;
+    }
+
+    // Check for profile
+    const user = (await _supabase.auth.getUser()).data.user;
+    const { data: profile } = await _supabase.from('profiles').select('id').eq('id', user.id).single();
+    window.location.href = profile ? 'index.html' : 'profile.html';
+  });
+
+  // Allow Enter key on password field
+  document.getElementById('password').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') document.getElementById('btn-signin').click();
+  });
+
+  // Magic link
+  document.getElementById('btn-magic').addEventListener('click', async () => {
+    const email = document.getElementById('magic-email').value.trim();
+    if (!email) { showAlert('Please enter your email address.'); return; }
+
+    const btn = document.getElementById('btn-magic');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Sending…';
+    clearAlert();
+
+    const { error } = await _supabase.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: window.location.origin + '/profile.html' }
+    });
+
+    btn.disabled = false;
+    btn.textContent = 'Send magic link';
+
+    if (error) { showAlert(error.message); return; }
+    showAlert('Check your inbox — a sign-in link is on its way.', 'success');
+  });
+
+  document.getElementById('magic-email').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') document.getElementById('btn-magic').click();
+  });
+})();
+</script>
+</body>
+</html>

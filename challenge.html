@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Challenge — STURNUS</title>
+  <link rel="stylesheet" href="css/app.css">
+  <!-- Theme pre-loader: runs before first paint to prevent flash -->
+  <link id="theme-css" rel="stylesheet" href="">
+  <script>(function(){try{var d=(window.location.hostname.includes("vhs")||window.location.hostname.endsWith("bekind.support"))?"vhs":"sturnus";var t=localStorage.getItem("lastTheme")||d;if(t==="vhs")document.getElementById("theme-css").href="css/theme-vhs.css";document.documentElement.dataset.themeLoading="1";}catch(e){}})()</script>
+  <!-- highlight.js for log syntax coloring -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <style>
+    .challenge-layout {
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 24px;
+      align-items: start;
+    }
+    @media (max-width: 960px) {
+      .challenge-layout { grid-template-columns: 1fr; }
+    }
+
+    .challenge-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      margin-bottom: 24px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .challenge-id-pill {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      padding: 4px 12px;
+      background: var(--accent-subtle);
+      color: var(--text-link);
+      border-radius: 20px;
+      white-space: nowrap;
+      flex-shrink: 0;
+      margin-top: 4px;
+    }
+    .challenge-title-area h1 { font-size: 22px; }
+    .challenge-title-area p  { color: var(--text-secondary); font-size: 13px; margin-top: 4px; }
+
+    .evidence-section { margin-bottom: 20px; }
+
+    .right-panel { position: sticky; top: 80px; display: flex; flex-direction: column; gap: 16px; }
+  </style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav class="nav">
+  <a href="index.html" class="nav-brand">
+    <span class="nav-brand-icon-wrap"><svg class="nav-brand-icon" viewBox="0 0 10 8" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="0" width="3" height="1"/><rect x="2" y="1" width="5" height="1"/><rect x="1" y="2" width="5" height="1"/><rect x="0" y="3" width="6" height="1"/><rect x="1" y="4" width="9" height="1"/><rect x="1" y="5" width="8" height="1"/><rect x="2" y="6" width="5" height="1"/><rect x="3" y="7" width="1" height="1"/><rect x="5" y="7" width="1" height="1"/></svg></span>
+    <span class="nav-brand-name">STURNUS</span>
+  </a>
+  <span style="color:var(--text-muted);font-size:13px;">/ <a href="index.html" style="color:var(--text-secondary)">Challenges</a></span>
+  <div class="nav-spacer"></div>
+  <div class="nav-info">
+    <span class="nav-handle" id="nav-handle">…</span>
+    <span class="nav-dot">·</span>
+    <span class="nav-score" id="nav-score">0 pts</span>
+  </div>
+  <a href="admin.html" class="nav-link admin-link" id="nav-admin" style="display:none">Admin</a>
+  <button class="nav-link" id="nav-logout">Sign out</button>
+</nav>
+
+<!-- Loading -->
+<div class="container" id="page-loading">
+  <div class="loading-state" style="margin-top:80px">
+    <div class="spinner"></div> Loading challenge…
+  </div>
+</div>
+
+<!-- Error -->
+<div class="container hidden" id="page-error">
+  <div class="alert alert-danger" style="margin-top:40px">
+    <div>
+      <strong>Challenge not found.</strong>
+      <p><a href="index.html">← Back to challenges</a></p>
+    </div>
+  </div>
+</div>
+
+<!-- Main content -->
+<div class="container hidden" id="page-content">
+
+  <!-- Header -->
+  <div class="challenge-header">
+    <span class="challenge-id-pill" id="ch-id"></span>
+    <div class="challenge-title-area">
+      <h1 id="ch-title"></h1>
+      <p id="ch-meta"></p>
+    </div>
+  </div>
+
+  <div class="challenge-layout">
+
+    <!-- ── Left: Evidence Column ───────────────────────────────────────────── -->
+    <div>
+
+      <!-- Scenario -->
+      <div class="evidence-section">
+        <div class="section-label">Incident Scenario</div>
+        <p class="scenario-text" id="ch-scenario"></p>
+      </div>
+
+      <!-- Ticket Quote -->
+      <div class="evidence-section">
+        <div class="section-label">Customer Ticket</div>
+        <div class="ticket-quote">
+          <div class="ticket-label">Verbatim escalation</div>
+          <div class="ticket-quote-text" id="ch-ticket"></div>
+        </div>
+      </div>
+
+      <!-- Architecture Context -->
+      <div class="evidence-section">
+        <div class="section-label">Architecture Context</div>
+        <div class="arch-box" id="ch-arch"></div>
+      </div>
+
+      <!-- Red Herrings -->
+      <div class="evidence-section" id="red-herrings-section">
+        <div class="section-label">Observed Data Points</div>
+        <div class="alert alert-warning mb-8" style="font-size:12px;padding:8px 12px;">
+          Not all of these are relevant. Part of the challenge is identifying which data actually matters.
+        </div>
+        <div class="red-herring-list" id="ch-red-herrings"></div>
+      </div>
+
+      <!-- Server Logs -->
+      <div class="evidence-section">
+        <div class="section-label">Evidence Files</div>
+        <div class="card" style="padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <span style="font-size:22px;">📄</span>
+            <div>
+              <div style="font-weight:600;font-size:13px;" id="log-filename">server-logs.json</div>
+              <div class="text-muted text-sm">JSON · structured log output</div>
+            </div>
+          </div>
+          <button class="btn btn-secondary btn-sm" id="btn-view-logs">View logs</button>
+        </div>
+      </div>
+
+      <!-- MongoDB Terminal -->
+      <div class="evidence-section">
+        <div class="section-label">MongoDB Query Console</div>
+        <div class="mongo-terminal">
+          <div class="mongo-terminal-header">
+            <div class="mongo-dot"></div>
+            <span class="mongo-title">Atlas Shell — shared-cluster</span>
+          </div>
+          <div class="mongo-terminal-output" id="mongo-output">
+            <div class="mongo-line mongo-line-system">Connected to Atlas. Type <kbd>show collections</kbd> to list available collections, then <kbd>db.&lt;name&gt;.findOne()</kbd> to inspect fields.</div>
+          </div>
+          <div class="mongo-terminal-input">
+            <span class="mongo-prompt">&gt;</span>
+            <textarea
+              id="mongo-query"
+              rows="2"
+              placeholder="show collections"
+              spellcheck="false"
+            ></textarea>
+          </div>
+          <div class="mongo-terminal-actions">
+            <button class="btn btn-secondary btn-sm" id="btn-run-query">▶ Run</button>
+            <button class="btn btn-ghost btn-sm" id="btn-clear-terminal">Clear</button>
+            <button class="btn btn-ghost btn-sm" id="btn-export-json" disabled title="Run a query first">⬇ Export JSON</button>
+            <span class="text-muted text-sm">Ctrl+Enter to run</span>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /left col -->
+
+    <!-- ── Right: Analysis Column ──────────────────────────────────────────── -->
+    <div class="right-panel">
+
+      <!-- Score preview -->
+      <div class="score-preview">
+        <span>Potential score</span>
+        <span class="score-preview-value" id="score-preview-val">100 pts</span>
+      </div>
+
+      <!-- Hints -->
+      <div class="card">
+        <div class="card-header">
+          <h2>💡 Hints</h2>
+          <span class="text-muted text-sm" id="hints-spent-label"></span>
+        </div>
+        <div class="card-body" style="padding:12px;">
+          <div class="hints-list" id="hints-list"></div>
+        </div>
+      </div>
+
+      <!-- Questions (multi-question progressive reveal) -->
+      <div class="card">
+        <div class="card-header">
+          <h2>🧠 Diagnosis</h2>
+          <span class="text-muted text-sm" id="q-progress"></span>
+        </div>
+        <div class="card-body">
+          <div id="questions-container"></div>
+          <div style="margin-top:14px;">
+            <button class="btn btn-primary btn-block" id="btn-submit-all" disabled style="display:none;">
+              Submit all answers
+            </button>
+          </div>
+          <div class="debrief-panel" id="debrief-panel">
+            <div class="debrief-header">
+              <span>Score breakdown</span>
+              <span class="debrief-total" id="debrief-total">0 pts</span>
+            </div>
+            <div class="debrief-body" id="debrief-body"></div>
+          </div>
+        </div>
+      </div>
+
+      <a href="index.html" class="btn btn-ghost btn-sm" style="text-align:center;">← Back to challenges</a>
+
+    </div><!-- /right col -->
+
+  </div>
+</div><!-- /page-content -->
+
+<!-- ── Server Logs Modal ───────────────────────────────────────────────────── -->
+<div class="modal-backdrop" id="logs-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="modal-filename">server-logs.json</h3>
+      <button class="modal-close" id="close-logs-modal" title="Close">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="log-viewer">
+        <pre><code class="language-json hljs" id="log-code"></code></pre>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <span class="text-muted text-sm" id="log-entry-count"></span>
+      <button class="btn btn-secondary btn-sm" id="btn-download-logs">⬇ Download JSON</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/themes.js"></script>
+<script src="js/auth.js"></script>
+<script>
+// ── Helpers ─────────────────────────────────────────────────────────────────
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function qs(sel)  { return document.querySelector(sel); }
+function qsAll(s) { return document.querySelectorAll(s); }
+
+// ── Main ─────────────────────────────────────────────────────────────────────
+
+(async () => {
+  const ctx = await Auth.requireAuth();
+  if (!ctx) return;
+
+  Auth.populateNav(ctx.profile);
+
+  const params = new URLSearchParams(window.location.search);
+  const challengeId = params.get('id');
+
+  if (!challengeId) { showError(); return; }
+
+  // Load challenge + user's existing submission + unlocked hints
+  const [chRes, subRes, hintsRes] = await Promise.all([
+    _supabase.from('challenges').select('*').eq('id', challengeId).eq('active', true).single(),
+    _supabase.from('submissions').select('*').eq('user_id', ctx.user.id).eq('challenge_id', challengeId).maybeSingle(),
+    _supabase.from('hint_unlocks').select('*').eq('user_id', ctx.user.id).eq('challenge_id', challengeId)
+  ]);
+
+  qs('#page-loading').style.display = 'none';
+
+  if (chRes.error || !chRes.data) { showError(); return; }
+
+  const ch          = chRes.data;
+  const submission  = subRes.data || null;   // null if not submitted yet
+  const unlockedSet = new Set((hintsRes.data || []).map(h => h.hint_index));
+  let   hintsCost   = (hintsRes.data || []).reduce((s, h) => s + h.cost, 0);
+  let   submitted   = !!submission;
+
+  // ── Populate static content ────────────────────────────────────────────────
+
+  qs('#page-content').classList.remove('hidden');
+  qs('#ch-id').textContent    = ch.id;
+  qs('#ch-title').textContent = ch.title;
+  const totalPts = (ch.questions || []).reduce((s, q) => s + (q.points || 0), 0);
+  qs('#ch-meta').textContent  = `${totalPts} base points · ${ch.hints.length} hint${ch.hints.length !== 1 ? 's' : ''} available`;
+  qs('#ch-scenario').textContent = ch.scenario;
+  qs('#ch-ticket').textContent   = ch.ticket_quote;
+  qs('#ch-arch').textContent     = ch.arch_context;
+  qs('#log-filename').textContent   = ch.server_logs_filename;
+  qs('#modal-filename').textContent = ch.server_logs_filename;
+
+  document.title = `${ch.id}: ${ch.title} — STURNUS`;
+
+  // Red herrings
+  const rhList = qs('#ch-red-herrings');
+  if (ch.red_herrings && ch.red_herrings.length) {
+    ch.red_herrings.forEach(rh => {
+      const div = document.createElement('div');
+      div.className = 'red-herring-item';
+      div.textContent = rh;
+      rhList.appendChild(div);
+    });
+  } else {
+    qs('#red-herrings-section').style.display = 'none';
+  }
+
+  // ── Score preview ──────────────────────────────────────────────────────────
+
+  function updateScorePreview() {
+    const potential = Math.max(totalPts - hintsCost, 0);
+    qs('#score-preview-val').textContent = potential + ' pts';
+    const spentEl = qs('#hints-spent-label');
+    spentEl.textContent = hintsCost > 0 ? `-${hintsCost} pts in hints` : '';
+  }
+  updateScorePreview();
+
+  // ── Hints ──────────────────────────────────────────────────────────────────
+
+  const hintsListEl = qs('#hints-list');
+
+  function renderHints() {
+    hintsListEl.innerHTML = '';
+    ch.hints.forEach((hint, i) => {
+      const unlocked = unlockedSet.has(i);
+      const div = document.createElement('div');
+      div.className = 'hint-item';
+
+      if (unlocked || submitted) {
+        div.innerHTML = `
+          <div class="hint-unlocked${hint.cost === 0 ? ' free' : ''}">
+            <div class="hint-number">Hint ${i + 1}</div>
+            ${escHtml(hint.text)}
+          </div>
+        `;
+      } else {
+        div.innerHTML = `
+          <div class="hint-locked">
+            <span class="hint-locked-label">Hint ${i + 1}</span>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span class="hint-cost${hint.cost === 0 ? ' free' : ''}">
+                ${hint.cost === 0 ? 'Free' : `-${hint.cost} pts`}
+              </span>
+              <button class="btn btn-ghost btn-sm" data-hint-idx="${i}" data-hint-cost="${hint.cost}">
+                ${hint.cost === 0 ? 'Reveal' : 'Unlock'}
+              </button>
+            </div>
+          </div>
+        `;
+      }
+
+      hintsListEl.appendChild(div);
+    });
+
+    // Attach unlock listeners
+    hintsListEl.querySelectorAll('[data-hint-idx]').forEach(btn => {
+      btn.addEventListener('click', () => unlockHint(parseInt(btn.dataset.hintIdx), parseInt(btn.dataset.hintCost)));
+    });
+  }
+
+  async function unlockHint(idx, cost) {
+    if (submitted) return;
+
+    const currentScore = ctx.profile.score - hintsCost; // approximate
+    if (cost > 0 && currentScore < cost) {
+      alert('Not enough points to unlock this hint.');
+      return;
+    }
+
+    const { data, error } = await _supabase.rpc('unlock_hint', {
+      p_challenge_id: ch.id,
+      p_hint_index:   idx,
+      p_cost:         cost
+    });
+
+    if (error || !data.success) {
+      if (data && data.error === 'Already unlocked') {
+        unlockedSet.add(idx);
+        renderHints();
+        return;
+      }
+      alert(data?.error || error?.message || 'Failed to unlock hint');
+      return;
+    }
+
+    unlockedSet.add(idx);
+    hintsCost += cost;
+
+    // Update nav score
+    if (data.new_score !== undefined) {
+      qs('#nav-score').textContent = data.new_score.toLocaleString() + ' pts';
+      ctx.profile.score = data.new_score;
+    }
+
+    updateScorePreview();
+    renderHints();
+  }
+
+  renderHints();
+
+  // ── Multi-question progressive reveal ─────────────────────────────────────
+
+  const letters   = ['A','B','C','D'];
+  const questions = ch.questions || [];
+  const container = qs('#questions-container');
+  const btnSubmitAll = qs('#btn-submit-all');
+
+  // Track per-question state: selected option (-1 = none), checked (bool)
+  const qState = questions.map(() => ({ selected: -1, checked: false }));
+  let   allChecked = false;
+
+  // Rebuild progress label
+  function updateProgress() {
+    const done = qState.filter(s => s.checked).length;
+    qs('#q-progress').textContent = `${done}/${questions.length} answered`;
+  }
+
+  // Render a single question block
+  function renderQuestion(qi) {
+    const q       = questions[qi];
+    const state   = qState[qi];
+    const isFirst = qi === 0;
+    const prevChecked = qi === 0 || qState[qi - 1].checked;
+    const locked  = submitted ? false : !prevChecked;
+
+    let blockClass = 'question-block';
+    if (locked)         blockClass += ' locked';
+    if (state.checked)  blockClass += state.selected === q.correct_option ? ' answered-correct' : ' answered-wrong';
+
+    const pts = q.points || 0;
+
+    let optionsHtml = q.options.map((opt, oi) => {
+      let cls = 'mcq-option';
+      if (state.checked || submitted) {
+        cls += ' disabled';
+        if (oi === q.correct_option) cls += ' correct';
+        else if (oi === state.selected && oi !== q.correct_option) cls += ' wrong';
+      } else if (oi === state.selected) {
+        cls += ' selected';
+      }
+      return `<div class="${cls}" data-qi="${qi}" data-oi="${oi}">
+        <div class="mcq-radio"></div>
+        <span class="mcq-letter">${letters[oi]}</span>
+        <span class="mcq-label">${escHtml(opt)}</span>
+      </div>`;
+    }).join('');
+
+    // Explanation — show after check
+    let explanationHtml = '';
+    if ((state.checked || submitted) && q.explanation) {
+      const isCorrect = state.selected === q.correct_option;
+      explanationHtml = `
+        <div class="explanation-block visible ${isCorrect ? 'correct' : 'wrong'}">
+          <div class="explanation-label">${isCorrect ? '✓ Correct' : '✗ Incorrect'}</div>
+          ${escHtml(q.explanation)}
+        </div>`;
+    }
+
+    // Check/submit button per question
+    let actionHtml = '';
+    if (!state.checked && !submitted) {
+      actionHtml = `<div style="margin-top:12px;">
+        <button class="btn btn-secondary btn-sm" id="btn-check-${qi}"
+          ${state.selected === -1 ? 'disabled' : ''}>
+          Check answer
+        </button>
+      </div>`;
+    }
+
+    return `<div class="${blockClass}" id="qblock-${qi}">
+      <div class="question-block-header">
+        <span class="q-label">${escHtml(q.label || `Question ${qi + 1}`)}</span>
+        <span class="q-pts">${pts} pts</span>
+      </div>
+      <div class="question-block-body">
+        <p style="font-size:14px;line-height:1.6;margin-bottom:12px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+          ${escHtml(q.question)}
+        </p>
+        <div class="mcq-options">${optionsHtml}</div>
+        ${actionHtml}
+        ${explanationHtml}
+      </div>
+    </div>`;
+  }
+
+  function renderAllQuestions() {
+    container.innerHTML = questions.map((_, i) => renderQuestion(i)).join('');
+    attachQuestionListeners();
+    updateProgress();
+    updateSubmitAllBtn();
+  }
+
+  function attachQuestionListeners() {
+    // Option selection
+    container.querySelectorAll('.mcq-option[data-qi]').forEach(el => {
+      if (!el.classList.contains('disabled')) {
+        el.addEventListener('click', () => {
+          const qi = parseInt(el.dataset.qi);
+          const oi = parseInt(el.dataset.oi);
+          if (qState[qi].checked || submitted) return;
+          qState[qi].selected = oi;
+          // Re-render just this block
+          const block = qs(`#qblock-${qi}`);
+          block.outerHTML = renderQuestion(qi);
+          attachQuestionListeners();
+          updateSubmitAllBtn();
+        });
+      }
+    });
+
+    // Check answer buttons
+    questions.forEach((_, qi) => {
+      const btn = qs(`#btn-check-${qi}`);
+      if (btn) {
+        btn.addEventListener('click', () => checkQuestion(qi));
+      }
+    });
+  }
+
+  function checkQuestion(qi) {
+    if (qState[qi].selected === -1 || qState[qi].checked) return;
+    qState[qi].checked = true;
+
+    // Rebuild this block
+    const block = qs(`#qblock-${qi}`);
+    block.outerHTML = renderQuestion(qi);
+    attachQuestionListeners();
+
+    // If there's a next question, re-render it to unlock it
+    if (qi + 1 < questions.length) {
+      const nextBlock = qs(`#qblock-${qi + 1}`);
+      nextBlock.outerHTML = renderQuestion(qi + 1);
+      attachQuestionListeners();
+    }
+
+    updateProgress();
+    updateSubmitAllBtn();
+  }
+
+  function updateSubmitAllBtn() {
+    allChecked = qState.every(s => s.checked);
+    btnSubmitAll.style.display = allChecked && !submitted ? '' : 'none';
+    btnSubmitAll.disabled = false;
+    btnSubmitAll.textContent = 'Submit all answers';
+  }
+
+  // Initial render
+  if (submitted && submission?.answers) {
+    // Restore state from existing submission
+    (submission.answers || []).forEach(a => {
+      if (a.question_idx < qState.length) {
+        qState[a.question_idx].selected = a.selected_option;
+        qState[a.question_idx].checked  = true;
+      }
+    });
+  }
+
+  renderAllQuestions();
+
+  // If already fully submitted show debrief
+  if (submitted && submission) {
+    showDebrief(submission.answers || [], submission.score_earned);
+  }
+
+  // ── Submit all ─────────────────────────────────────────────────────────────
+
+  btnSubmitAll.addEventListener('click', async () => {
+    if (submitted) return;
+    btnSubmitAll.disabled = true;
+    btnSubmitAll.innerHTML = '<span class="spinner"></span> Submitting…';
+
+    const answers = qState.map((s, qi) => ({
+      question_idx:    qi,
+      selected_option: s.selected
+    }));
+
+    const { data, error } = await _supabase.rpc('submit_challenge', {
+      p_challenge_id: ch.id,
+      p_answers:      answers
+    });
+
+    if (error || !data.success) {
+      const msg = data?.error || error?.message || 'Submission failed';
+      btnSubmitAll.disabled = false;
+      btnSubmitAll.textContent = 'Submit all answers';
+      alert(msg);
+      return;
+    }
+
+    submitted = true;
+    btnSubmitAll.style.display = 'none';
+
+    if (data.new_score !== undefined) {
+      qs('#nav-score').textContent = data.new_score.toLocaleString() + ' pts';
+      updateScorePreview();
+    }
+
+    showDebrief(data.graded, data.score_earned);
+  });
+
+  function showDebrief(graded, scoreEarned) {
+    const panel = qs('#debrief-panel');
+    const body  = qs('#debrief-body');
+    panel.classList.add('visible');
+    qs('#debrief-total').textContent = scoreEarned.toLocaleString() + ' pts';
+
+    body.innerHTML = '';
+    (graded || []).forEach(g => {
+      const q = questions[g.question_idx];
+      if (!q) return;
+      const correct = g.correct;
+      const row = document.createElement('div');
+      row.className = 'debrief-row';
+      row.innerHTML = `
+        <span class="debrief-row-label">${escHtml(q.label || `Q${g.question_idx + 1}`)}</span>
+        <span class="debrief-row-result ${correct ? 'correct' : 'wrong'}">
+          ${correct ? `+${g.earned} pts` : `0 pts (${letters[g.correct_option]} was correct)`}
+        </span>
+      `;
+      body.appendChild(row);
+    });
+
+    if (hintsCost > 0) {
+      const row = document.createElement('div');
+      row.className = 'debrief-row';
+      row.innerHTML = `
+        <span class="debrief-row-label">Hint penalty</span>
+        <span class="debrief-row-result wrong">−${hintsCost} pts</span>
+      `;
+      body.appendChild(row);
+    }
+  }
+
+  // ── Server Logs Modal ──────────────────────────────────────────────────────
+
+  const logsModal = qs('#logs-modal');
+  let logRaw = '';
+
+  qs('#btn-view-logs').addEventListener('click', () => {
+    if (!logRaw) {
+      logRaw = JSON.stringify(ch.server_logs, null, 2);
+      const codeEl = qs('#log-code');
+      codeEl.textContent = logRaw;
+      hljs.highlightElement(codeEl);
+      const count = Array.isArray(ch.server_logs) ? ch.server_logs.length : 1;
+      qs('#log-entry-count').textContent = `${count} log entr${count === 1 ? 'y' : 'ies'}`;
+    }
+    logsModal.classList.add('open');
+  });
+
+  function closeModal() { logsModal.classList.remove('open'); }
+  qs('#close-logs-modal').addEventListener('click', closeModal);
+  logsModal.addEventListener('click', e => { if (e.target === logsModal) closeModal(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+  qs('#btn-download-logs').addEventListener('click', () => {
+    const blob = new Blob([logRaw || JSON.stringify(ch.server_logs, null, 2)], { type: 'application/json' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = ch.server_logs_filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  // ── MongoDB Terminal ────────────────────────────────────────────────────────
+
+  const mongoCollections = ch.mongo_collections || [];
+  const outputEl   = document.getElementById('mongo-output');
+  const queryEl    = document.getElementById('mongo-query');
+  const exportBtn  = document.getElementById('btn-export-json');
+  let   lastResult = null; // { filename, data }
+
+  exportBtn.addEventListener('click', () => {
+    if (!lastResult) return;
+    const blob = new Blob([JSON.stringify(lastResult.data, null, 2)], { type: 'application/json' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = lastResult.filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  function appendLine(text, type = 'result') {
+    // type: command | result | error | system | count | schema
+    if (type === 'command') {
+      const el = document.createElement('div');
+      el.className = 'mongo-line mongo-line-command';
+      el.textContent = '> ' + text;
+      outputEl.appendChild(el);
+    } else if (type === 'result' || type === 'schema') {
+      const el = document.createElement('div');
+      el.className = 'mongo-line mongo-line-result';
+      el.textContent = text;
+      outputEl.appendChild(el);
+    } else if (type === 'count') {
+      const el = document.createElement('div');
+      el.className = 'mongo-line mongo-line-count';
+      el.textContent = text;
+      outputEl.appendChild(el);
+    } else if (type === 'error') {
+      const el = document.createElement('div');
+      el.className = 'mongo-line mongo-line-error';
+      el.textContent = text;
+      outputEl.appendChild(el);
+    } else if (type === 'system') {
+      const el = document.createElement('div');
+      el.className = 'mongo-line mongo-line-system';
+      el.innerHTML = text;
+      outputEl.appendChild(el);
+    }
+    outputEl.scrollTop = outputEl.scrollHeight;
+  }
+
+  function inferType(val) {
+    if (val === null || val === undefined) return 'null';
+    if (val?.$oid)  return 'ObjectId';
+    if (val?.$date) return 'ISODate';
+    if (Array.isArray(val)) return val.length ? `[${inferType(val[0])}]` : '[]';
+    if (typeof val === 'object') {
+      const nested = {};
+      for (const [k, v] of Object.entries(val)) nested[k] = inferType(v);
+      return nested;
+    }
+    if (typeof val === 'string')  return 'String';
+    if (typeof val === 'boolean') return 'Boolean';
+    if (typeof val === 'number')  return Number.isInteger(val) ? 'Int32' : 'Double';
+    return 'Mixed';
+  }
+
+  function getSchemaDoc(doc) {
+    const schema = {};
+    for (const [k, v] of Object.entries(doc)) schema[k] = inferType(v);
+    return schema;
+  }
+
+  function runMongoQuery() {
+    const q = queryEl.value.trim();
+    if (!q) return;
+
+    appendLine(q, 'command');
+    queryEl.value = '';
+
+    const normalized = q.replace(/\s+/g, ' ').trim();
+
+    // ── show collections ──────────────────────────────────────────────────────
+    if (/^show collections$/i.test(normalized)) {
+      if (!mongoCollections.length) {
+        appendLine('(no collections)', 'system');
+      } else {
+        mongoCollections.forEach(c => appendLine(c.collection, 'result'));
+      }
+      return;
+    }
+
+    // ── db.X.findOne(...) ─────────────────────────────────────────────────────
+    const findOneMatch = normalized.match(/^db\.(\w+)\.findOne\s*\(/i);
+    if (findOneMatch) {
+      const col = mongoCollections.find(c => c.collection === findOneMatch[1]);
+      if (!col) {
+        appendLine(`MongoNamespaceError: collection '${findOneMatch[1]}' not found. Run 'show collections'.`, 'error');
+        return;
+      }
+      if (!col.synthetic_docs?.length) {
+        appendLine('null', 'result');
+        return;
+      }
+      const doc = col.synthetic_docs[0];
+      appendLine(JSON.stringify(doc, null, 2), 'result');
+      lastResult = { filename: `${col.collection}-findOne.json`, data: doc };
+      exportBtn.disabled = false;
+      return;
+    }
+
+    // ── db.X.find(...) ────────────────────────────────────────────────────────
+    const findMatch = normalized.match(/^db\.(\w+)\.find\s*\(/i);
+    if (findMatch) {
+      const col = mongoCollections.find(c => c.collection === findMatch[1]);
+      if (!col) {
+        appendLine(`MongoNamespaceError: collection '${findMatch[1]}' not found. Run 'show collections'.`, 'error');
+        return;
+      }
+      const docs = col.synthetic_docs || [];
+      appendLine(`// ${docs.length} document${docs.length !== 1 ? 's' : ''}`, 'count');
+      appendLine(JSON.stringify(docs, null, 2), 'result');
+      lastResult = { filename: `${col.collection}.json`, data: docs };
+      exportBtn.disabled = false;
+      return;
+    }
+
+    // ── unknown ───────────────────────────────────────────────────────────────
+    appendLine(`Error: unrecognized command. Try: show collections | db.<name>.findOne() | db.<name>.find({})`, 'error');
+  }
+
+  document.getElementById('btn-run-query').addEventListener('click', runMongoQuery);
+  document.getElementById('btn-clear-terminal').addEventListener('click', () => {
+    outputEl.innerHTML = '<div class="mongo-line mongo-line-system">Terminal cleared.</div>';
+  });
+  queryEl.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); runMongoQuery(); }
+  });
+
+  // ── Error helper ───────────────────────────────────────────────────────────
+
+  function showError() {
+    qs('#page-loading').style.display = 'none';
+    qs('#page-error').classList.remove('hidden');
+  }
+
+})();
+</script>
+</body>
+</html>

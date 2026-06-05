@@ -1,0 +1,31 @@
+/* VHS theme — CSS variable overrides loaded before first paint */
+:root {
+  --bg-canvas:    #0d0015;
+  --bg-surface:   #1a0030;
+  --bg-overlay:   #240048;
+  --bg-inset:     #08000f;
+  --border:       #4a1a80;
+  --border-muted: #2d0f60;
+
+  --text-primary:   #f0e8ff;
+  --text-secondary: #c0a8e8;
+  --text-muted:     #9070d0;
+  --text-link:      #ea80fc;
+  --text-danger:    #ff6b6b;
+  --text-success:   #00e5ff;
+  --text-warning:   #ffab40;
+  --text-purple:    #ea80fc;
+
+  --accent:        #7c2fbf;
+  --accent-hover:  #9c4de8;
+  --accent-subtle: rgba(124,47,191,0.15);
+
+  --success-bg:    rgba(0,229,255,0.08);
+  --danger-bg:     rgba(255,107,107,0.10);
+  --warning-bg:    rgba(255,171,64,0.08);
+
+  --btn-primary:       #2d0060;
+  --btn-primary-hover: #45008a;
+  --btn-danger:        #5a0020;
+  --btn-danger-hover:  #7a0030;
+}

@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin — STURNUS</title>
+  <link rel="stylesheet" href="css/app.css">
+  <!-- Theme pre-loader: runs before first paint to prevent flash -->
+  <link id="theme-css" rel="stylesheet" href="">
+  <script>(function(){try{var d=(window.location.hostname.includes("vhs")||window.location.hostname.endsWith("bekind.support"))?"vhs":"sturnus";var t=localStorage.getItem("lastTheme")||d;if(t==="vhs")document.getElementById("theme-css").href="css/theme-vhs.css";document.documentElement.dataset.themeLoading="1";}catch(e){}})()</script>
+  <style>
+    .json-hint {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 4px;
+      font-family: var(--font-mono);
+    }
+    .challenge-row-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    .toggle-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      border: 1px solid;
+      background: none;
+      transition: background 0.15s;
+    }
+    .toggle-pill.active   { color: var(--text-success); border-color: var(--text-success); }
+    .toggle-pill.inactive { color: var(--text-danger);  border-color: var(--text-danger);  }
+    .toggle-pill:hover { opacity: 0.75; }
+  </style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav class="nav">
+  <a href="index.html" class="nav-brand">
+    <span class="nav-brand-icon-wrap"><svg class="nav-brand-icon" viewBox="0 0 10 8" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="0" width="3" height="1"/><rect x="2" y="1" width="5" height="1"/><rect x="1" y="2" width="5" height="1"/><rect x="0" y="3" width="6" height="1"/><rect x="1" y="4" width="9" height="1"/><rect x="1" y="5" width="8" height="1"/><rect x="2" y="6" width="5" height="1"/><rect x="3" y="7" width="1" height="1"/><rect x="5" y="7" width="1" height="1"/></svg></span>
+    <span class="nav-brand-name">STURNUS</span>
+  </a>
+  <span style="color:var(--text-muted);font-size:13px;">/ Admin</span>
+  <div class="nav-spacer"></div>
+  <div class="nav-info">
+    <span class="nav-handle" id="nav-handle">…</span>
+    <span class="nav-dot">·</span>
+    <span class="badge badge-warning">admin</span>
+  </div>
+  <a href="index.html" class="nav-link">← App</a>
+  <button class="nav-link" id="nav-logout">Sign out</button>
+</nav>
+
+<div class="container">
+  <div class="page-header">
+    <h1>Admin Panel</h1>
+    <p>Manage challenges, invite team members, and review scores.</p>
+  </div>
+
+  <!-- Alert area -->
+  <div id="alert-area"></div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="invite">Invite Users</button>
+    <button class="tab-btn" data-tab="challenges">Challenges</button>
+    <button class="tab-btn" data-tab="scores">All Scores</button>
+  </div>
+
+  <!-- ── Tab: Invite ─────────────────────────────────────────────────────── -->
+  <div id="tab-invite" class="tab-panel active">
+    <div class="form-panel" style="max-width:520px;">
+      <div class="form-panel-header">
+        <h3>Send invite email</h3>
+      </div>
+      <div class="form-panel-body">
+        <p class="text-muted text-sm mb-16">
+          The invitee will receive a magic-link email. On first click they'll be prompted to pick a handle and optional password.
+          Admin invites only work when deployed to Vercel (the <code>/api/invite</code> serverless function requires the service role key).
+        </p>
+        <div class="form-group">
+          <label for="invite-email">Email address</label>
+          <input type="email" id="invite-email" placeholder="teammate@company.com">
+        </div>
+        <div class="form-group">
+          <label>Role</label>
+          <div style="display:flex;gap:16px;margin-top:4px;">
+            <label style="display:flex;align-items:center;gap:6px;font-weight:400;cursor:pointer;">
+              <input type="radio" name="invite-role" value="user" checked> User
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;font-weight:400;cursor:pointer;">
+              <input type="radio" name="invite-role" value="admin"> Admin
+            </label>
+          </div>
+        </div>
+        <button id="btn-send-invite" class="btn btn-primary">Send invite</button>
+        <div id="invite-feedback" style="margin-top:12px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Tab: Challenges ─────────────────────────────────────────────────── -->
+  <div id="tab-challenges" class="tab-panel">
+
+    <!-- Add / Edit form -->
+    <div class="form-panel" id="challenge-form-panel">
+      <div class="form-panel-header">
+        <h3 id="form-panel-title">Add New Challenge</h3>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-ghost btn-sm" id="btn-reset-form">Clear</button>
+        </div>
+      </div>
+      <div class="form-panel-body">
+        <input type="hidden" id="f-edit-id">
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="f-id">Challenge ID <span class="label-hint">e.g. TICKET-0002</span></label>
+            <input type="text" id="f-id" placeholder="TICKET-0002" class="mono-input">
+          </div>
+          <div class="form-group">
+            <label for="f-title">Title</label>
+            <input type="text" id="f-title" placeholder="The Midnight Cascade">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="f-scenario">Scenario <span class="label-hint">plain text</span></label>
+          <textarea id="f-scenario" rows="3" placeholder="Describe the incident…"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="f-ticket">Customer Ticket Quote <span class="label-hint">verbatim escalation text</span></label>
+          <textarea id="f-ticket" rows="2" placeholder='"Our app is down and we are losing sales…"'></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="f-arch">Architecture Context <span class="label-hint">system description</span></label>
+          <textarea id="f-arch" rows="3" placeholder="Node.js + MongoDB Atlas + Redis…"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="f-red-herrings">Red Herrings <span class="label-hint">JSON array of strings</span></label>
+          <textarea id="f-red-herrings" rows="3" class="mono-input" placeholder='["CPU spike was within normal limits", "Deployment was 3h earlier"]'></textarea>
+          <div class="json-hint">["string", "string", ...]</div>
+        </div>
+
+        <div class="form-group">
+          <label for="f-server-logs">Server Logs <span class="label-hint">JSON array of log objects</span></label>
+          <textarea id="f-server-logs" rows="6" class="mono-input" placeholder='[{"ts":"2024-01-15T23:47:18Z","level":"warn","msg":"Pool wait exceeded"}]'></textarea>
+          <div class="json-hint">[{...}, {...}] — each object is one log line</div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="f-log-filename">Log filename <span class="label-hint">shown in UI + download</span></label>
+            <input type="text" id="f-log-filename" placeholder="server-logs.json" class="mono-input">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="f-mongo-collections">MongoDB Collections <span class="label-hint">JSON array — one entry per queryable collection</span></label>
+          <textarea id="f-mongo-collections" rows="8" class="mono-input" placeholder='[
+  {
+    "collection": "calls",
+    "required_field": "organizationId",
+    "synthetic_docs": [{"_id": {"$oid": "..."}, "organizationId": "abc123"}]
+  },
+  {
+    "collection": "users",
+    "required_field": "organizations.organizationId",
+    "synthetic_docs": [{"_id": {"$oid": "..."}, "organizations": [{"organizationId": "abc123"}]}]
+  }
+]'></textarea>
+          <div class="json-hint">[{"collection": "name", "required_field": "fieldName", "synthetic_docs": [{...}]}, ...]</div>
+          <div class="json-hint" style="margin-top:4px;color:var(--text-muted);">Tip: add extra collections with irrelevant synthetic_docs to make the investigation harder. Trainees can run <span style="color:var(--text-warning)">show collections</span> and <span style="color:var(--text-warning)">db.X.findOne()</span> to explore all of them.</div>
+        </div>
+
+        <div class="form-group">
+          <label for="f-hints">Hints <span class="label-hint">JSON array — first hint cost should be 0 (free)</span></label>
+          <textarea id="f-hints" rows="4" class="mono-input" placeholder='[{"text":"Check the Atlas alert…","cost":0},{"text":"The held_ms values…","cost":25}]'></textarea>
+          <div class="json-hint">[{"text": "...", "cost": 0}, {"text": "...", "cost": 25}, ...]</div>
+        </div>
+
+        <div class="form-group">
+          <label for="f-questions">Questions <span class="label-hint">JSON array — each entry is one question with label, question text, options, correct_option (0–3), points, and explanation shown in debrief</span></label>
+          <textarea id="f-questions" rows="14" class="mono-input" placeholder='[
+  {
+    "label": "Root Cause",
+    "question": "What is the root cause?",
+    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "correct_option": 1,
+    "points": 100,
+    "explanation": "The root cause was X because..."
+  },
+  {
+    "label": "Customer Response",
+    "question": "Which response do you send to the customer?",
+    "options": ["Option A", "Option B", "Option C", "Option D"],
+    "correct_option": 2,
+    "points": 50,
+    "explanation": "Option C is correct because it clearly explains the issue without jargon..."
+  }
+]'></textarea>
+          <div class="json-hint">[{"label":"...", "question":"...", "options":[4 strings], "correct_option":0, "points":100, "explanation":"..."}, ...]</div>
+        </div>
+
+        <div class="form-group" style="display:flex;align-items:center;gap:8px;">
+          <label style="display:flex;align-items:center;gap:8px;font-weight:400;cursor:pointer;text-transform:none;letter-spacing:0;margin-bottom:0;">
+            <input type="checkbox" id="f-active" checked>
+            Active (visible to users)
+          </label>
+        </div>
+
+        <div style="display:flex;gap:10px;margin-top:8px;">
+          <button class="btn btn-primary" id="btn-save-challenge">Save challenge</button>
+          <div id="form-save-feedback" style="display:flex;align-items:center;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Challenge table -->
+    <div class="card">
+      <div class="card-header">
+        <h2>All Challenges</h2>
+        <span class="text-muted text-sm" id="ch-count"></span>
+      </div>
+      <div class="table-wrap">
+        <div id="ch-table-loading" class="loading-state"><div class="spinner"></div></div>
+        <table id="ch-table" class="hidden">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Title</th>
+              <th>Points</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="ch-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Tab: Scores ─────────────────────────────────────────────────────── -->
+  <div id="tab-scores" class="tab-panel">
+    <div class="card">
+      <div class="card-header">
+        <h2>All Scores &amp; Submissions</h2>
+        <button class="btn btn-ghost btn-sm" id="btn-refresh-scores">↻ Refresh</button>
+      </div>
+      <div class="table-wrap">
+        <div id="scores-loading" class="loading-state"><div class="spinner"></div></div>
+        <table id="scores-table" class="hidden">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Handle</th>
+              <th>Theme</th>
+              <th>Total Score</th>
+              <th>Challenges Solved</th>
+              <th>Joined</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="scores-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/themes.js"></script>
+<script src="js/auth.js"></script>
+<script>
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function showGlobalAlert(msg, type = 'success') {
+  const el = document.getElementById('alert-area');
+  el.innerHTML = `<div class="alert alert-${type}"><p>${escHtml(msg)}</p></div>`;
+  setTimeout(() => { el.innerHTML = ''; }, 5000);
+}
+
+function parseJsonField(raw, label) {
+  try { return { ok: true, value: JSON.parse(raw.trim()) }; }
+  catch(e) { return { ok: false, error: `${label}: invalid JSON — ${e.message}` }; }
+}
+
+// ── Main ─────────────────────────────────────────────────────────────────────
+(async () => {
+  const ctx = await Auth.requireAdmin();
+  if (!ctx) return;
+
+  // Wire nav logout (no populateNav since we show 'admin' badge, not score)
+  document.getElementById('nav-handle').textContent = ctx.profile.handle;
+  document.getElementById('nav-logout').addEventListener('click', () => Auth.signOut());
+
+  // ── Tabs ──────────────────────────────────────────────────────────────────
+
+  const tabBtns   = document.querySelectorAll('.tab-btn');
+  const tabPanels = document.querySelectorAll('.tab-panel');
+  let scoresLoaded = false;
+  let challengesLoaded = false;
+
+  tabBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      tabBtns.forEach(b => b.classList.toggle('active', b === btn));
+      tabPanels.forEach(p => p.classList.toggle('active', p.id === `tab-${btn.dataset.tab}`));
+      if (btn.dataset.tab === 'scores' && !scoresLoaded) loadScores();
+      if (btn.dataset.tab === 'challenges' && !challengesLoaded) loadChallenges();
+    });
+  });
+
+  // ── Invite ────────────────────────────────────────────────────────────────
+
+  document.getElementById('btn-send-invite').addEventListener('click', async () => {
+    const email = document.getElementById('invite-email').value.trim();
+    const role  = document.querySelector('input[name="invite-role"]:checked').value;
+    const fb    = document.getElementById('invite-feedback');
+
+    if (!email) { fb.innerHTML = '<div class="alert alert-danger"><p>Email required.</p></div>'; return; }
+
+    const btn = document.getElementById('btn-send-invite');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Sending…';
+    fb.innerHTML  = '';
+
+    const token = await Auth.getAccessToken();
+    try {
+      const res = await fetch('/api/invite', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body:    JSON.stringify({ email, role })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Request failed');
+      fb.innerHTML = `<div class="alert alert-success"><p>${escHtml(data.message)}</p></div>`;
+      document.getElementById('invite-email').value = '';
+    } catch(e) {
+      fb.innerHTML = `<div class="alert alert-danger"><p>${escHtml(e.message)}</p></div>`;
+    }
+
+    btn.disabled    = false;
+    btn.textContent = 'Send invite';
+  });
+
+  // ── Challenges: Load ──────────────────────────────────────────────────────
+
+  async function loadChallenges() {
+    challengesLoaded = true;
+    const { data: challenges, error } = await _supabase
+      .from('challenges')
+      .select('id, title, questions, active, created_at')
+      .order('created_at', { ascending: true });
+
+    document.getElementById('ch-table-loading').style.display = 'none';
+    const table = document.getElementById('ch-table');
+    table.classList.remove('hidden');
+
+    if (error) {
+      showGlobalAlert('Failed to load challenges: ' + error.message, 'danger');
+      return;
+    }
+
+    document.getElementById('ch-count').textContent = challenges.length + ' total';
+    renderChallengeTable(challenges);
+  }
+
+  function renderChallengeTable(challenges) {
+    const tbody = document.getElementById('ch-tbody');
+    tbody.innerHTML = '';
+    challenges.forEach(ch => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="td-mono">${escHtml(ch.id)}</td>
+        <td>${escHtml(ch.title)}</td>
+        <td class="td-mono">${(ch.questions||[]).reduce((s,q)=>s+(q.points||0),0)}</td>
+        <td>
+          <button class="toggle-pill ${ch.active ? 'active' : 'inactive'}" data-id="${escHtml(ch.id)}" data-active="${ch.active}">
+            ${ch.active ? '● Active' : '○ Inactive'}
+          </button>
+        </td>
+        <td>
+          <div class="challenge-row-actions">
+            <button class="btn btn-ghost btn-sm btn-edit-ch" data-id="${escHtml(ch.id)}">Edit</button>
+            <button class="btn btn-danger btn-sm btn-delete-ch" data-id="${escHtml(ch.id)}" data-title="${escHtml(ch.title)}">Delete</button>
+          </div>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    // Toggle active
+    tbody.querySelectorAll('.toggle-pill').forEach(btn => {
+      btn.addEventListener('click', () => toggleActive(btn.dataset.id, btn.dataset.active === 'true'));
+    });
+    // Edit
+    tbody.querySelectorAll('.btn-edit-ch').forEach(btn => {
+      btn.addEventListener('click', () => editChallenge(btn.dataset.id));
+    });
+    // Delete
+    tbody.querySelectorAll('.btn-delete-ch').forEach(btn => {
+      btn.addEventListener('click', () => deleteChallenge(btn.dataset.id, btn.dataset.title));
+    });
+  }
+
+  async function toggleActive(id, current) {
+    const { error } = await _supabase
+      .from('challenges')
+      .update({ active: !current })
+      .eq('id', id);
+    if (error) { showGlobalAlert('Failed to update: ' + error.message, 'danger'); return; }
+    showGlobalAlert(`${id} is now ${!current ? 'active' : 'inactive'}.`);
+    await loadChallenges();
+  }
+
+  async function deleteChallenge(id, title) {
+    if (!confirm(`Delete "${title}" (${id})?\n\nThis also removes all submissions for this challenge. This cannot be undone.`)) return;
+    const { error } = await _supabase.from('challenges').delete().eq('id', id);
+    if (error) { showGlobalAlert('Delete failed: ' + error.message, 'danger'); return; }
+    showGlobalAlert(`${id} deleted.`);
+    resetForm();
+    await loadChallenges();
+  }
+
+  // ── Challenge Form: Load for Edit ─────────────────────────────────────────
+
+  async function editChallenge(id) {
+    const { data: ch, error } = await _supabase
+      .from('challenges').select('*').eq('id', id).single();
+    if (error || !ch) { showGlobalAlert('Failed to load challenge.', 'danger'); return; }
+
+    document.getElementById('form-panel-title').textContent = 'Edit: ' + ch.id;
+    document.getElementById('f-edit-id').value   = ch.id;
+    document.getElementById('f-id').value        = ch.id;
+    document.getElementById('f-id').disabled     = true; // can't change PK
+    document.getElementById('f-title').value     = ch.title;
+    document.getElementById('f-scenario').value  = ch.scenario;
+    document.getElementById('f-ticket').value    = ch.ticket_quote;
+    document.getElementById('f-arch').value      = ch.arch_context;
+    document.getElementById('f-red-herrings').value   = JSON.stringify(ch.red_herrings, null, 2);
+    document.getElementById('f-server-logs').value    = JSON.stringify(ch.server_logs, null, 2);
+    document.getElementById('f-log-filename').value   = ch.server_logs_filename;
+    document.getElementById('f-mongo-collections').value = JSON.stringify(ch.mongo_collections, null, 2);
+    document.getElementById('f-hints').value    = JSON.stringify(ch.hints, null, 2);
+    document.getElementById('f-questions').value = JSON.stringify(ch.questions, null, 2);
+    document.getElementById('f-active').checked  = ch.active;
+
+    document.getElementById('btn-save-challenge').textContent = 'Update challenge';
+    document.getElementById('challenge-form-panel').scrollIntoView({ behavior: 'smooth' });
+  }
+
+  function resetForm() {
+    document.getElementById('form-panel-title').textContent = 'Add New Challenge';
+    document.getElementById('f-edit-id').value = '';
+    document.getElementById('f-id').value = '';
+    document.getElementById('f-id').disabled = false;
+    ['f-title','f-scenario','f-ticket','f-arch','f-red-herrings',
+     'f-server-logs','f-mongo-collections',
+     'f-hints','f-questions'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+    document.getElementById('f-log-filename').value = 'server-logs.json';
+    document.getElementById('f-active').checked     = true;
+    document.getElementById('btn-save-challenge').textContent = 'Save challenge';
+    document.getElementById('form-save-feedback').innerHTML = '';
+  }
+
+  document.getElementById('btn-reset-form').addEventListener('click', resetForm);
+
+  // ── Challenge Form: Save ──────────────────────────────────────────────────
+
+  document.getElementById('btn-save-challenge').addEventListener('click', async () => {
+    const fb = document.getElementById('form-save-feedback');
+    fb.innerHTML = '';
+
+    const editId = document.getElementById('f-edit-id').value.trim();
+    const isEdit = !!editId;
+
+    // Collect + validate
+    const id    = document.getElementById('f-id').value.trim().toUpperCase();
+    const title = document.getElementById('f-title').value.trim();
+    if (!id)    { fb.innerHTML = err('Challenge ID is required.'); return; }
+    if (!title) { fb.innerHTML = err('Title is required.'); return; }
+    if (!/^[A-Z0-9\-]+$/.test(id)) {
+      fb.innerHTML = err('ID must be uppercase alphanumeric with hyphens, e.g. TICKET-0002.'); return;
+    }
+
+    // Parse JSON fields
+    const redH   = parseJsonField(document.getElementById('f-red-herrings').value    || '[]', 'Red Herrings');
+    const logs   = parseJsonField(document.getElementById('f-server-logs').value      || '[]', 'Server Logs');
+    const mCols  = parseJsonField(document.getElementById('f-mongo-collections').value || '[]', 'MongoDB Collections');
+    const hints  = parseJsonField(document.getElementById('f-hints').value            || '[]', 'Hints');
+    const qs_f   = parseJsonField(document.getElementById('f-questions').value        || '[]', 'Questions');
+
+    for (const field of [redH, logs, mCols, hints, qs_f]) {
+      if (!field.ok) { fb.innerHTML = err(field.error); return; }
+    }
+
+    if (!Array.isArray(qs_f.value) || !qs_f.value.length) {
+      fb.innerHTML = err('Questions must be a non-empty JSON array.'); return;
+    }
+    for (const q of qs_f.value) {
+      if (!q.question || !Array.isArray(q.options) || q.options.length !== 4 || q.correct_option === undefined) {
+        fb.innerHTML = err('Each question needs: question, options (4 strings), correct_option (0–3), points, explanation.');
+        return;
+      }
+    }
+
+    if (!Array.isArray(mCols.value)) {
+      fb.innerHTML = err('MongoDB Collections must be a JSON array.'); return;
+    }
+    for (const col of mCols.value) {
+      if (!col.collection || !Array.isArray(col.synthetic_docs)) {
+        fb.innerHTML = err('Each MongoDB collection entry needs: collection and synthetic_docs[].');
+        return;
+      }
+    }
+
+    const row = {
+      id,
+      title,
+      scenario:             document.getElementById('f-scenario').value.trim(),
+      ticket_quote:         document.getElementById('f-ticket').value.trim(),
+      arch_context:         document.getElementById('f-arch').value.trim(),
+      red_herrings:         redH.value,
+      server_logs:          logs.value,
+      server_logs_filename: document.getElementById('f-log-filename').value.trim() || 'server-logs.json',
+      mongo_collections:    mCols.value,
+      questions:            qs_f.value,
+      hints:                hints.value,
+      active:               document.getElementById('f-active').checked
+    };
+
+    const btn = document.getElementById('btn-save-challenge');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Saving…';
+
+    let error;
+    if (isEdit) {
+      const { id: _omit, ...updateRow } = row; // never change the primary key
+      const { error: e } = await _supabase.from('challenges').update(updateRow).eq('id', editId);
+      error = e;
+    } else {
+      const { error: e } = await _supabase.from('challenges').insert(row);
+      error = e;
+    }
+
+    btn.disabled    = false;
+    btn.textContent = isEdit ? 'Update challenge' : 'Save challenge';
+
+    if (error) {
+      fb.innerHTML = err(error.message);
+      return;
+    }
+
+    fb.innerHTML = `<div class="alert alert-success" style="margin:0;padding:8px 12px;">
+      <p>${isEdit ? 'Updated' : 'Created'} ${escHtml(id)} ✓</p></div>`;
+    if (!isEdit) resetForm();
+    challengesLoaded = false;
+    await loadChallenges();
+  });
+
+  function err(msg) {
+    return `<div class="alert alert-danger" style="margin:0;padding:8px 12px;"><p>${escHtml(msg)}</p></div>`;
+  }
+
+  // ── Load on challenges tab active by default if user hits it ──────────────
+  // challenges tab is not active by default, but let's preload on first click
+  // (already handled in tab click handler above)
+
+  // ── Scores ────────────────────────────────────────────────────────────────
+
+  async function loadScores() {
+    scoresLoaded = true;
+    const [profilesRes, submissionsRes] = await Promise.all([
+      _supabase.from('profiles').select('id, handle, score, theme, created_at').order('score', { ascending: false }),
+      _supabase.from('submissions').select('user_id, challenge_id, score_earned, completed_at')
+    ]);
+
+    document.getElementById('scores-loading').style.display = 'none';
+    const table = document.getElementById('scores-table');
+    table.classList.remove('hidden');
+
+    if (profilesRes.error) {
+      showGlobalAlert('Failed to load scores: ' + profilesRes.error.message, 'danger');
+      return;
+    }
+
+    const profiles    = profilesRes.data    || [];
+    const submissions = submissionsRes.data || [];
+
+    const subCountMap = {};
+    submissions.forEach(s => {
+      subCountMap[s.user_id] = (subCountMap[s.user_id] || 0) + 1;
+    });
+
+    const tbody = document.getElementById('scores-tbody');
+    tbody.innerHTML = '';
+    profiles.forEach((p, i) => {
+      const solved = subCountMap[p.id] || 0;
+      const joined = new Date(p.created_at).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+      const tr = document.createElement('tr');
+      const themeLabel  = p.theme === 'sturnus' ? 'STURNUS' : 'V.H.S.';
+      const themeBadge  = p.theme === 'sturnus'
+        ? `<span class="badge badge-success">${themeLabel}</span>`
+        : `<span class="badge badge-purple">${themeLabel}</span>`;
+      const newTheme    = p.theme === 'sturnus' ? 'vhs' : 'sturnus';
+      const newLabel    = p.theme === 'sturnus' ? '→ V.H.S.' : '→ STURNUS';
+
+      tr.innerHTML = `
+        <td class="td-mono" style="color:var(--text-muted)">${i + 1}</td>
+        <td style="font-weight:600;">${escHtml(p.handle)}</td>
+        <td>${themeBadge} <button class="btn btn-ghost btn-sm btn-switch-theme" data-id="${escHtml(p.id)}" data-handle="${escHtml(p.handle)}" data-theme="${newTheme}" style="font-size:10px;padding:1px 6px;">${newLabel}</button></td>
+        <td class="td-mono" style="color:var(--text-success);font-weight:700;">${p.score.toLocaleString()}</td>
+        <td class="td-mono">${solved}</td>
+        <td class="text-muted text-sm">${joined}</td>
+        <td><button class="btn btn-ghost btn-sm btn-reset-scores" data-id="${escHtml(p.id)}" data-handle="${escHtml(p.handle)}" ${p.score === 0 && solved === 0 ? 'disabled' : ''}>Reset</button></td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    tbody.querySelectorAll('.btn-switch-theme').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const { error } = await _supabase
+          .from('profiles')
+          .update({ theme: btn.dataset.theme })
+          .eq('id', btn.dataset.id);
+        if (error) { showGlobalAlert('Theme switch failed: ' + error.message, 'danger'); return; }
+        showGlobalAlert(`${btn.dataset.handle} switched to ${btn.dataset.theme === 'vhs' ? 'V.H.S.' : 'STURNUS'}.`);
+        scoresLoaded = false;
+        await loadScores();
+      });
+    });
+
+    tbody.querySelectorAll('.btn-reset-scores').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const handle = btn.dataset.handle;
+        if (!confirm(`Reset all scores and submissions for "${handle}"?\n\nThis clears their score, all submissions, and all hint unlocks. Cannot be undone.`)) return;
+
+        btn.disabled = true;
+        btn.textContent = '…';
+
+        const { data, error } = await _supabase.rpc('reset_user_scores', { p_user_id: btn.dataset.id });
+
+        if (error || !data?.success) {
+          showGlobalAlert(data?.error || error?.message || 'Reset failed', 'danger');
+          btn.disabled = false;
+          btn.textContent = 'Reset';
+          return;
+        }
+
+        showGlobalAlert(`${handle} reset to 0 pts.`);
+        scoresLoaded = false;
+        await loadScores();
+      });
+    });
+  }
+
+  document.getElementById('btn-refresh-scores').addEventListener('click', () => {
+    scoresLoaded = false;
+    document.getElementById('scores-loading').style.display = 'flex';
+    document.getElementById('scores-table').classList.add('hidden');
+    loadScores();
+  });
+
+})();
+</script>
+</body>
+</html>
