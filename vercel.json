@@ -1,11 +1,6 @@
 {
   "cleanUrls": false,
   "trailingSlash": false,
-  "functions": {
-    "api/*.js": {
-      "runtime": "nodejs20.x"
-    }
-  },
   "redirects": [
     { "source": "/", "destination": "/splash.html", "permanent": false }
   ],
