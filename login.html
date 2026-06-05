@@ -123,6 +123,13 @@
     const email = document.getElementById('magic-email').value.trim();
     if (!email) { showAlert('Please enter your email address.'); return; }
 
+    // On STURNUS, restrict to murmuration.org only
+    const isSturnusDomain = !window.location.hostname.includes('vhs') && !window.location.hostname.endsWith('bekind.support');
+    if (isSturnusDomain && !email.endsWith('@murmuration.org')) {
+      showAlert('Access to STURNUS is restricted to murmuration.org accounts. If you\'re looking for the training app, visit bekind.support.');
+      return;
+    }
+
     const btn = document.getElementById('btn-magic');
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> Sending…';

@@ -131,6 +131,15 @@
       }
     }
 
+    // Block non-murmuration emails on STURNUS domain
+    const isSturnusDomain = !window.location.hostname.includes('vhs') && !window.location.hostname.endsWith('bekind.support');
+    if (isSturnusDomain && !(user.email || '').endsWith('@murmuration.org')) {
+      showAlert('Access to STURNUS is restricted to murmuration.org accounts. Please use bekind.support instead.');
+      btn.disabled = false;
+      btn.textContent = 'Join the leaderboard';
+      return;
+    }
+
     // Auto-assign theme: murmuration.org → sturnus, everyone else → vhs
     const theme = (user.email || '').endsWith('@murmuration.org') ? 'sturnus' : 'vhs';
 
