@@ -104,17 +104,66 @@
   const [challengesRes, submissionsRes] = await Promise.all([
     _supabase
       .from('challenges')
-      .select('id, title, questions, active')
+      .select('id, title, questions, variant_group, active')
       .eq('active', true)
       .order('created_at', { ascending: true }),
     _supabase
       .from('submissions')
-      .select('challenge_id, score_earned')
+      .select('challenge_id, score_earned, completed_at')
       .eq('user_id', ctx.user.id)
   ]);
 
-  const challenges  = challengesRes.data  || [];
-  const submissions = submissionsRes.data || [];
+  const allChallenges = challengesRes.data  || [];
+  const submissions   = submissionsRes.data || [];
+  const REVIEW_DAYS   = 90;
+
+  // Build submission lookup: challenge_id → most recent submission
+  const subById = {};
+  submissions.forEach(s => {
+    if (!subById[s.challenge_id] || new Date(s.completed_at) > new Date(subById[s.challenge_id].completed_at)) {
+      subById[s.challenge_id] = s;
+    }
+  });
+
+  // Variant rotation: for grouped challenges, pick one to show per group
+  const challenges = [];
+  const groups = {};
+  allChallenges.forEach(ch => {
+    if (ch.variant_group) {
+      if (!groups[ch.variant_group]) groups[ch.variant_group] = [];
+      groups[ch.variant_group].push(ch);
+    } else {
+      challenges.push(ch);
+    }
+  });
+
+  Object.values(groups).forEach(variants => {
+    // Find most recent submission across this group
+    const groupSubs = variants.map(ch => subById[ch.id]).filter(Boolean)
+      .sort((a, b) => new Date(b.completed_at) - new Date(a.completed_at));
+
+    if (groupSubs.length === 0) {
+      // Never done any — show first variant
+      challenges.push(variants[0]);
+      return;
+    }
+
+    const lastSub = groupSubs[0];
+    const daysSince = (Date.now() - new Date(lastSub.completed_at)) / 86400000;
+
+    if (daysSince < REVIEW_DAYS) return; // still in cooldown, hide group
+
+    // Due for review — pick a different variant than last time
+    const lastDoneId = lastSub.challenge_id;
+    const unseen = variants.filter(ch => !subById[ch.id]);
+    const next = unseen.length > 0 ? unseen[0]
+      : (variants.find(ch => ch.id !== lastDoneId) || variants[0]);
+    challenges.push({ ...next, _isReview: true });
+  });
+
+  // Sort in original order (by id)
+  challenges.sort((a, b) => a.id.localeCompare(b.id));
+
   const doneIds = new Set(submissions.map(s => s.challenge_id));
 
   document.getElementById('challenges-loading').style.display = 'none';
@@ -146,7 +195,9 @@
         <div class="challenge-card-right">
           ${done
             ? '<span class="badge badge-success">✓ Solved</span>'
-            : '<span class="badge badge-muted">Unsolved</span>'
+            : ch._isReview
+              ? '<span class="badge badge-warning">Review</span>'
+              : '<span class="badge badge-muted">Unsolved</span>'
           }
           <span class="pts-badge">${pts} pts</span>
         </div>

@@ -428,8 +428,23 @@ function qsAll(s) { return document.querySelectorAll(s); }
 
   // ── Multi-question progressive reveal ─────────────────────────────────────
 
-  const letters   = ['A','B','C','D'];
-  const questions = ch.questions || [];
+  const letters = ['A','B','C','D'];
+
+  // Shuffle answer options so the correct answer isn't always in the same slot.
+  // Stores a shuffle map (displayIndex → originalIndex) for grading.
+  function shuffleQuestion(q) {
+    const opts = [...q.options];
+    const map  = opts.map((_, i) => i); // map[displayIdx] = originalIdx
+    for (let i = opts.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [opts[i], opts[j]] = [opts[j], opts[i]];
+      [map[i],  map[j]]  = [map[j],  map[i]];
+    }
+    const newCorrect = map.indexOf(q.correct_option);
+    return { ...q, options: opts, correct_option: newCorrect, _shuffle_map: map };
+  }
+
+  const questions = (ch.questions || []).map(shuffleQuestion);
   const container = qs('#questions-container');
   const btnSubmitAll = qs('#btn-submit-all');
 
@@ -605,9 +620,12 @@ function qsAll(s) { return document.querySelectorAll(s); }
     btnSubmitAll.disabled = true;
     btnSubmitAll.innerHTML = '<span class="spinner"></span> Submitting…';
 
+    // Convert shuffled display indices back to original DB indices for grading
     const answers = qState.map((s, qi) => ({
       question_idx:    qi,
-      selected_option: s.selected
+      selected_option: questions[qi]._shuffle_map
+        ? questions[qi]._shuffle_map[s.selected]
+        : s.selected
     }));
 
     const { data, error } = await _supabase.rpc('submit_challenge', {

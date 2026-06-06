@@ -207,6 +207,11 @@
           <div class="json-hint">[{"label":"...", "question":"...", "options":[4 strings], "correct_option":0, "points":100, "explanation":"..."}, ...]</div>
         </div>
 
+        <div class="form-group">
+          <label for="f-variant-group">Variant Group <span class="label-hint">optional — slug shared by all variants of the same root cause, e.g. email-from-error</span></label>
+          <input type="text" id="f-variant-group" placeholder="email-from-error" class="mono-input">
+        </div>
+
         <div class="form-group" style="display:flex;align-items:center;gap:8px;">
           <label style="display:flex;align-items:center;gap:8px;font-weight:400;cursor:pointer;text-transform:none;letter-spacing:0;margin-bottom:0;">
             <input type="checkbox" id="f-active" checked>
@@ -454,8 +459,9 @@ function parseJsonField(raw, label) {
     document.getElementById('f-log-filename').value   = ch.server_logs_filename;
     document.getElementById('f-mongo-collections').value = JSON.stringify(ch.mongo_collections, null, 2);
     document.getElementById('f-hints').value    = JSON.stringify(ch.hints, null, 2);
-    document.getElementById('f-questions').value = JSON.stringify(ch.questions, null, 2);
-    document.getElementById('f-active').checked  = ch.active;
+    document.getElementById('f-questions').value     = JSON.stringify(ch.questions, null, 2);
+    document.getElementById('f-variant-group').value = ch.variant_group || '';
+    document.getElementById('f-active').checked      = ch.active;
 
     document.getElementById('btn-save-challenge').textContent = 'Update challenge';
     document.getElementById('challenge-form-panel').scrollIntoView({ behavior: 'smooth' });
@@ -471,8 +477,9 @@ function parseJsonField(raw, label) {
      'f-hints','f-questions'].forEach(id => {
       document.getElementById(id).value = '';
     });
-    document.getElementById('f-log-filename').value = 'server-logs.json';
-    document.getElementById('f-active').checked     = true;
+    document.getElementById('f-log-filename').value  = 'server-logs.json';
+    document.getElementById('f-variant-group').value = '';
+    document.getElementById('f-active').checked      = true;
     document.getElementById('btn-save-challenge').textContent = 'Save challenge';
     document.getElementById('form-save-feedback').innerHTML = '';
   }
@@ -540,6 +547,7 @@ function parseJsonField(raw, label) {
       mongo_collections:    mCols.value,
       questions:            qs_f.value,
       hints:                hints.value,
+      variant_group:        document.getElementById('f-variant-group').value.trim() || null,
       active:               document.getElementById('f-active').checked
     };
 
