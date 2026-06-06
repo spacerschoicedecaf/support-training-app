@@ -349,8 +349,9 @@ function qsAll(s) { return document.querySelectorAll(s); }
         qs('#page-error').innerHTML = `
           <div class="alert alert-warning" style="margin-top:40px">
             <div>
-              <strong>This case is not currently active in your rotation.</strong>
-              <p style="margin-top:6px;"><a href="index.html">← Back to case list</a></p>
+              <strong>This case is locked.</strong>
+              <p style="margin-top:6px;">You have an active case in this rotation. Complete your current assignment before this one becomes available.</p>
+              <p style="margin-top:8px;"><a href="index.html">← Back to case list</a></p>
             </div>
           </div>`;
         qs('#page-error').classList.remove('hidden');
