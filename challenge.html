@@ -299,6 +299,66 @@ function qsAll(s) { return document.querySelectorAll(s); }
 
   if (chRes.error || !chRes.data) { showError(); return; }
 
+  // ── Variant lock: if this challenge is in a group, verify it's the active variant ──
+  const ch_raw = chRes.data;
+  if (ch_raw.variant_group) {
+    const { data: groupChallenges } = await _supabase
+      .from('challenges')
+      .select('id')
+      .eq('variant_group', ch_raw.variant_group)
+      .eq('active', true);
+
+    if (groupChallenges && groupChallenges.length > 1) {
+      const groupIds = groupChallenges.map(c => c.id);
+      const { data: groupSubs } = await _supabase
+        .from('submissions')
+        .select('challenge_id, completed_at')
+        .eq('user_id', ctx.user.id)
+        .in('challenge_id', groupIds);
+
+      const REVIEW_DAYS = 90;
+      const subById = {};
+      (groupSubs || []).forEach(s => {
+        if (!subById[s.challenge_id] || new Date(s.completed_at) > new Date(subById[s.challenge_id].completed_at)) {
+          subById[s.challenge_id] = s;
+        }
+      });
+
+      const groupSorted = [...groupChallenges].sort((a, b) => a.id.localeCompare(b.id));
+      const groupSubsSorted = groupChallenges.map(c => subById[c.id]).filter(Boolean)
+        .sort((a, b) => new Date(b.completed_at) - new Date(a.completed_at));
+
+      let activeId;
+      if (groupSubsSorted.length === 0) {
+        activeId = groupSorted[0].id;
+      } else {
+        const lastSub = groupSubsSorted[0];
+        const daysSince = (Date.now() - new Date(lastSub.completed_at)) / 86400000;
+        if (daysSince < REVIEW_DAYS) {
+          // In cooldown — only the already-completed challenge is accessible
+          activeId = lastSub.challenge_id;
+        } else {
+          const lastDoneId = lastSub.challenge_id;
+          const unseen = groupSorted.filter(c => !subById[c.id]);
+          activeId = unseen.length > 0 ? unseen[0].id
+            : (groupSorted.find(c => c.id !== lastDoneId) || groupSorted[0]).id;
+        }
+      }
+
+      if (activeId !== challengeId) {
+        qs('#page-error').innerHTML = `
+          <div class="alert alert-warning" style="margin-top:40px">
+            <div>
+              <strong>This case is not currently active in your rotation.</strong>
+              <p style="margin-top:6px;"><a href="index.html">← Back to case list</a></p>
+            </div>
+          </div>`;
+        qs('#page-error').classList.remove('hidden');
+        return;
+      }
+    }
+  }
+
   const ch          = chRes.data;
   const submission  = subRes.data || null;   // null if not submitted yet
   const unlockedSet = new Set((hintsRes.data || []).map(h => h.hint_index));

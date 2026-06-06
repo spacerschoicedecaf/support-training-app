@@ -399,6 +399,7 @@ function parseJsonField(raw, label) {
         <td>
           <div class="challenge-row-actions">
             <button class="btn btn-ghost btn-sm btn-edit-ch" data-id="${escHtml(ch.id)}">Edit</button>
+            ${ch.variant_group ? `<button class="btn btn-ghost btn-sm btn-force-variant" data-group="${escHtml(ch.variant_group)}" title="Back-date all group submissions to force next variant to appear">Force Variant</button>` : ''}
             <button class="btn btn-danger btn-sm btn-delete-ch" data-id="${escHtml(ch.id)}" data-title="${escHtml(ch.title)}">Delete</button>
           </div>
         </td>
@@ -410,6 +411,24 @@ function parseJsonField(raw, label) {
     tbody.querySelectorAll('.toggle-pill').forEach(btn => {
       btn.addEventListener('click', () => toggleActive(btn.dataset.id, btn.dataset.active === 'true'));
     });
+    // Force Variant
+    tbody.querySelectorAll('.btn-force-variant').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const group = btn.dataset.group;
+        if (!confirm(`Force next variant for group "${group}"?\n\nThis back-dates all submissions in the group to 92 days ago so every user sees the next variant on their next visit.`)) return;
+        btn.disabled = true;
+        btn.textContent = '…';
+        const { data, error } = await _supabase.rpc('admin_force_variant', { p_group: group });
+        btn.disabled = false;
+        btn.textContent = 'Force Variant';
+        if (error || !data?.success) {
+          showGlobalAlert(data?.error || error?.message || 'Failed', 'danger');
+        } else {
+          showGlobalAlert(`Variant forced for group "${group}" — next visit will show the next variant.`);
+        }
+      });
+    });
+
     // Edit
     tbody.querySelectorAll('.btn-edit-ch').forEach(btn => {
       btn.addEventListener('click', () => editChallenge(btn.dataset.id));
@@ -620,6 +639,7 @@ function parseJsonField(raw, label) {
       const solved = subCountMap[p.id] || 0;
       const joined = new Date(p.created_at).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
       const tr = document.createElement('tr');
+      // (scores table rendering continues below)
       const themeLabel  = p.theme === 'sturnus' ? 'STURNUS' : 'V.H.S.';
       const themeBadge  = p.theme === 'sturnus'
         ? `<span class="badge badge-success">${themeLabel}</span>`
