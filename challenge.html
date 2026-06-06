@@ -841,11 +841,12 @@ function qsAll(s) { return document.querySelectorAll(s); }
 </script>
 
 <script>
-// Collapsible sections — runs after DOM is ready, independent of data loading
-document.querySelectorAll('.evidence-section.collapsible .section-label').forEach(function(label) {
-  label.addEventListener('click', function() {
+// Collapsible sections — event delegation on the left column
+document.addEventListener('click', function(e) {
+  var label = e.target.closest('.evidence-section.collapsible .section-label');
+  if (label) {
     label.closest('.evidence-section').classList.toggle('collapsed');
-  });
+  }
 });
 </script>
 </body>
