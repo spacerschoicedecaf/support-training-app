@@ -3,59 +3,307 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Set Up Your Profile — STURNUS</title>
+  <title>Profile — STURNUS</title>
   <link rel="stylesheet" href="css/app.css">
   <!-- Theme pre-loader: runs before first paint to prevent flash -->
   <link id="theme-css" rel="stylesheet" href="">
   <script>(function(){try{var d=(window.location.hostname.includes("vhs")||window.location.hostname.endsWith("bekind.support"))?"vhs":"sturnus";var t=localStorage.getItem("lastTheme")||d;if(t==="vhs")document.getElementById("theme-css").href="css/theme-vhs.css";document.documentElement.dataset.themeLoading="1";}catch(e){}})()</script>
+  <style>
+    /* ── Stats strip ─────────────────────────────────── */
+    .profile-stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+    @media (max-width: 700px) {
+      .profile-stats { grid-template-columns: repeat(2, 1fr); }
+    }
+    .stat-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      text-align: center;
+    }
+    .stat-card-value {
+      font-size: 28px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      color: var(--text-link);
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+    .stat-card-label {
+      font-size: 11px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+
+    /* ── Profile header ──────────────────────────────── */
+    .profile-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 28px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .profile-avatar {
+      width: 52px;
+      height: 52px;
+      background: var(--accent-subtle);
+      border: 1px solid var(--accent);
+      border-radius: var(--radius);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-mono);
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text-link);
+      flex-shrink: 0;
+    }
+    .profile-header-info h1 {
+      font-size: 22px;
+      font-family: var(--font-mono);
+      color: var(--text-primary);
+    }
+    .profile-header-info p {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* ── Two-col layout ──────────────────────────────── */
+    .profile-layout {
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: 24px;
+      align-items: start;
+    }
+    @media (max-width: 900px) {
+      .profile-layout { grid-template-columns: 1fr; }
+    }
+
+    /* ── History table ───────────────────────────────── */
+    .history-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .history-table th {
+      font-size: 10px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-weight: normal;
+      text-align: left;
+      padding: 0 8px 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .history-table td {
+      padding: 10px 8px 10px 0;
+      border-bottom: 1px solid var(--border-muted);
+      vertical-align: middle;
+    }
+    .history-table tr:last-child td { border-bottom: none; }
+    .history-ch-id {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+    .history-ch-title {
+      color: var(--text-primary);
+    }
+    .history-score {
+      font-family: var(--font-mono);
+      color: var(--text-success);
+      white-space: nowrap;
+    }
+    .history-date {
+      font-size: 11px;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+    .history-badges { display: flex; gap: 4px; flex-wrap: wrap; }
+    .empty-history {
+      padding: 40px 0;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+  </style>
 </head>
 <body>
-<div class="auth-page">
-  <div class="auth-card">
-    <div class="auth-logo">
-      <div class="auth-logo-icon" style="background:transparent;padding:0;">
-        <svg viewBox="0 0 10 8" width="30" height="24" fill="#8fbc5a" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="0" width="3" height="1"/><rect x="2" y="1" width="5" height="1"/><rect x="1" y="2" width="5" height="1"/><rect x="0" y="3" width="6" height="1"/><rect x="1" y="4" width="9" height="1"/><rect x="1" y="5" width="8" height="1"/><rect x="2" y="6" width="5" height="1"/><rect x="3" y="7" width="1" height="1"/><rect x="5" y="7" width="1" height="1"/></svg>
+
+<!-- ── Setup view (new users / no profile yet) ─────────────────────────── -->
+<div id="setup-view" class="hidden">
+  <div class="auth-page">
+    <div class="auth-card">
+      <div class="auth-logo">
+        <div class="auth-logo-icon" style="background:transparent;padding:0;" id="setup-logo-icon">
+          <svg viewBox="0 0 10 8" width="30" height="24" fill="#8fbc5a" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="0" width="3" height="1"/><rect x="2" y="1" width="5" height="1"/><rect x="1" y="2" width="5" height="1"/><rect x="0" y="3" width="6" height="1"/><rect x="1" y="4" width="9" height="1"/><rect x="1" y="5" width="8" height="1"/><rect x="2" y="6" width="5" height="1"/><rect x="3" y="7" width="1" height="1"/><rect x="5" y="7" width="1" height="1"/></svg>
+        </div>
+        <div>
+          <div class="auth-logo-text" id="setup-logo-text">STURNUS</div>
+          <div class="auth-logo-sub">Create your anonymous identity</div>
+        </div>
       </div>
-      <div>
-        <div class="auth-logo-text">STURNUS</div>
-        <div class="auth-logo-sub">Create your anonymous identity</div>
+
+      <div id="setup-alert-area"></div>
+
+      <div id="setup-form">
+        <div class="alert alert-info mb-16">
+          <p>Choose a handle — this name appears on the public leaderboard instead of your email. Pick something fun.</p>
+        </div>
+
+        <div class="form-group">
+          <label for="handle">
+            Handle
+            <span class="label-hint">letters, numbers, hyphens — 3–24 characters</span>
+          </label>
+          <input
+            type="text"
+            id="handle"
+            placeholder="e.g. ghost-runner, l33t-tier2"
+            maxlength="24"
+            autocomplete="off"
+            autocorrect="off"
+            spellcheck="false"
+          >
+        </div>
+
+        <div class="form-group">
+          <label for="new-password">
+            Set a password
+            <span class="label-hint">optional — you can always use magic links instead</span>
+          </label>
+          <input type="password" id="new-password" placeholder="At least 8 characters" autocomplete="new-password">
+        </div>
+
+        <button id="btn-save-setup" class="btn btn-primary btn-block btn-lg">
+          Join the leaderboard
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Dashboard view (existing users) ────────────────────────────────── -->
+<div id="dashboard-view" class="hidden">
+
+  <!-- Nav -->
+  <nav class="nav">
+    <a href="index.html" class="nav-brand">
+      <span class="nav-brand-icon-wrap"><svg class="nav-brand-icon" viewBox="0 0 10 8" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><rect x="3" y="0" width="3" height="1"/><rect x="2" y="1" width="5" height="1"/><rect x="1" y="2" width="5" height="1"/><rect x="0" y="3" width="6" height="1"/><rect x="1" y="4" width="9" height="1"/><rect x="1" y="5" width="8" height="1"/><rect x="2" y="6" width="5" height="1"/><rect x="3" y="7" width="1" height="1"/><rect x="5" y="7" width="1" height="1"/></svg></span>
+      <span class="nav-brand-name">STURNUS</span>
+    </a>
+    <span style="color:var(--text-muted);font-size:13px;">/ <span style="color:var(--text-secondary)">Profile</span></span>
+    <div class="nav-spacer"></div>
+    <div class="nav-info">
+      <span class="nav-handle" id="nav-handle">…</span>
+      <span class="nav-dot">·</span>
+      <span class="nav-score" id="nav-score">0 pts</span>
+    </div>
+    <a href="admin.html" class="nav-link admin-link" id="nav-admin" style="display:none">Admin</a>
+    <button class="nav-link" id="nav-logout">Sign out</button>
+  </nav>
+
+  <div class="container" style="max-width:900px;">
+    <div class="page-header" style="margin-bottom:20px;">
+      <h1>Your Profile</h1>
+    </div>
+
+    <!-- Profile header row -->
+    <div class="profile-header">
+      <div class="profile-avatar" id="profile-avatar">?</div>
+      <div class="profile-header-info">
+        <h1 id="profile-handle">—</h1>
+        <p id="profile-meta">loading…</p>
       </div>
     </div>
 
-    <div id="alert-area"></div>
+    <!-- Stats -->
+    <div class="profile-stats">
+      <div class="stat-card">
+        <div class="stat-card-value" id="stat-score">—</div>
+        <div class="stat-card-label">Total Score</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-value" id="stat-rank">—</div>
+        <div class="stat-card-label">Rank</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-value" id="stat-solved">—</div>
+        <div class="stat-card-label">Cases Solved</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card-value" id="stat-hintfree">—</div>
+        <div class="stat-card-label">Hint-free</div>
+      </div>
+    </div>
 
-    <div id="setup-form">
-      <div class="alert alert-info mb-16">
-        <p>Choose a handle — this name appears on the public leaderboard instead of your email. Pick something fun.</p>
+    <div class="profile-layout">
+
+      <!-- Left: Case history -->
+      <div>
+        <div class="card">
+          <div class="card-header">
+            <h2>Case History</h2>
+            <span class="text-muted text-sm" id="history-count"></span>
+          </div>
+          <div id="history-loading" class="loading-state" style="padding:20px 16px;">
+            <div class="spinner"></div>
+          </div>
+          <div id="history-body" style="padding:0 16px;"></div>
+        </div>
       </div>
 
-      <div class="form-group">
-        <label for="handle">
-          Handle
-          <span class="label-hint">letters, numbers, hyphens — 3–24 characters</span>
-        </label>
-        <input
-          type="text"
-          id="handle"
-          placeholder="e.g. ghost-runner, l33t-tier2"
-          maxlength="24"
-          autocomplete="off"
-          autocorrect="off"
-          spellcheck="false"
-        >
+      <!-- Right: Edit panel -->
+      <div style="display:flex;flex-direction:column;gap:16px;">
+
+        <!-- Change handle -->
+        <div class="card">
+          <div class="card-header"><h2>Change Handle</h2></div>
+          <div class="card-body" style="padding:16px;">
+            <div id="handle-alert"></div>
+            <div class="form-group" style="margin-bottom:12px;">
+              <input
+                type="text"
+                id="edit-handle"
+                maxlength="24"
+                autocomplete="off"
+                spellcheck="false"
+                placeholder="new-handle"
+                style="font-family:var(--font-mono);"
+              >
+            </div>
+            <button class="btn btn-secondary btn-sm btn-block" id="btn-save-handle">Update handle</button>
+          </div>
+        </div>
+
+        <!-- Change password -->
+        <div class="card">
+          <div class="card-header"><h2>Change Password</h2></div>
+          <div class="card-body" style="padding:16px;">
+            <div id="password-alert"></div>
+            <div class="form-group" style="margin-bottom:8px;">
+              <input type="password" id="new-pw" placeholder="New password (8+ characters)" autocomplete="new-password">
+            </div>
+            <div class="form-group" style="margin-bottom:12px;">
+              <input type="password" id="confirm-pw" placeholder="Confirm password" autocomplete="new-password">
+            </div>
+            <button class="btn btn-secondary btn-sm btn-block" id="btn-save-password">Update password</button>
+          </div>
+        </div>
+
       </div>
 
-      <div class="form-group">
-        <label for="new-password">
-          Set a password
-          <span class="label-hint">optional — you can always use magic links instead</span>
-        </label>
-        <input type="password" id="new-password" placeholder="At least 8 characters" autocomplete="new-password">
-      </div>
-
-      <button id="btn-save" class="btn btn-primary btn-block btn-lg">
-        Join the leaderboard
-      </button>
     </div>
   </div>
 </div>
@@ -66,108 +314,305 @@
 <script src="js/auth.js"></script>
 <script>
 (async () => {
-  const alertArea = document.getElementById('alert-area');
 
-  function showAlert(msg, type = 'danger') {
-    alertArea.innerHTML = `<div class="alert alert-${type}"><p>${msg}</p></div>`;
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
-  // Wait for Supabase to exchange the token in the URL hash (invite/magic link)
-  // detectSessionInUrl: true (set in config.js) handles this automatically on getSession()
+  function showAlert(containerId, msg, type = 'danger') {
+    const el = document.getElementById(containerId);
+    if (el) el.innerHTML = `<div class="alert alert-${type}" style="margin-bottom:10px;font-size:12px;"><p>${msg}</p></div>`;
+  }
+  function clearAlert(containerId) {
+    const el = document.getElementById(containerId);
+    if (el) el.innerHTML = '';
+  }
+
+  // ── Get session ────────────────────────────────────────────────────────────
   const { data: { session } } = await _supabase.auth.getSession();
 
   if (!session) {
-    showAlert('No active session found. Please use the link from your invite email, or <a href="login.html">sign in</a>.');
-    document.getElementById('setup-form').classList.add('hidden');
+    window.location.href = 'login.html';
     return;
   }
 
   const user = session.user;
 
-  // Apply theme immediately based on email domain
-  const detectedTheme = (user.email || '').endsWith('@murmuration.org') ? 'sturnus' : 'vhs';
-  if (typeof applyTheme === 'function') applyTheme(detectedTheme);
-
-  // Check if profile already exists — if so, they don't need setup
-  const { data: existing } = await _supabase
+  // ── Check for existing profile ─────────────────────────────────────────────
+  const { data: profile } = await _supabase
     .from('profiles')
-    .select('id')
+    .select('*')
     .eq('id', user.id)
-    .single();
+    .maybeSingle();
 
-  if (existing) {
-    window.location.href = 'index.html';
-    return;
-  }
+  // ════════════════════════════════════════════════════════════════════════════
+  // SETUP MODE — no profile yet
+  // ════════════════════════════════════════════════════════════════════════════
+  if (!profile) {
+    document.getElementById('setup-view').classList.remove('hidden');
 
-  const handleRe = /^[a-zA-Z0-9][a-zA-Z0-9\-]{1,22}[a-zA-Z0-9]$|^[a-zA-Z0-9]{3}$/;
+    // Apply theme from email
+    const detectedTheme = (user.email || '').endsWith('@murmuration.org') ? 'sturnus' : 'vhs';
+    if (typeof applyTheme === 'function') applyTheme(detectedTheme);
 
-  document.getElementById('btn-save').addEventListener('click', async () => {
-    const handle   = document.getElementById('handle').value.trim();
-    const password = document.getElementById('new-password').value;
-
-    if (!handle) { showAlert('Please choose a handle.'); return; }
-    if (!handleRe.test(handle)) {
-      showAlert('Handle must be 3–24 characters and contain only letters, numbers, and hyphens.');
-      return;
-    }
-    if (password && password.length < 8) {
-      showAlert('Password must be at least 8 characters.');
-      return;
+    // Update logo for VHS
+    if (detectedTheme === 'vhs') {
+      document.getElementById('setup-logo-text').textContent = 'V.H.S.';
+      document.title = 'Set Up Your Profile — V.H.S.';
+    } else {
+      document.title = 'Set Up Your Profile — STURNUS';
     }
 
-    const btn = document.getElementById('btn-save');
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> Saving…';
+    const handleRe = /^[a-zA-Z0-9][a-zA-Z0-9\-]{1,22}[a-zA-Z0-9]$|^[a-zA-Z0-9]{3}$/;
 
-    // Optionally update password
-    if (password) {
-      const { error: passErr } = await _supabase.auth.updateUser({ password });
-      if (passErr) {
-        showAlert(passErr.message);
+    document.getElementById('btn-save-setup').addEventListener('click', async () => {
+      const handle   = document.getElementById('handle').value.trim();
+      const password = document.getElementById('new-password').value;
+
+      if (!handle) { showAlert('setup-alert-area', 'Please choose a handle.'); return; }
+      if (!handleRe.test(handle)) {
+        showAlert('setup-alert-area', 'Handle must be 3–24 characters and contain only letters, numbers, and hyphens.');
+        return;
+      }
+      if (password && password.length < 8) {
+        showAlert('setup-alert-area', 'Password must be at least 8 characters.');
+        return;
+      }
+
+      const btn = document.getElementById('btn-save-setup');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Saving…';
+
+      // Block non-murmuration emails on STURNUS domain
+      const isSturnusDomain = !window.location.hostname.includes('vhs') && !window.location.hostname.endsWith('bekind.support');
+      if (isSturnusDomain && !(user.email || '').endsWith('@murmuration.org')) {
+        showAlert('setup-alert-area', 'Access to STURNUS is restricted to murmuration.org accounts. Please use bekind.support instead.');
         btn.disabled = false;
         btn.textContent = 'Join the leaderboard';
         return;
       }
-    }
 
-    // Block non-murmuration emails on STURNUS domain
-    const isSturnusDomain = !window.location.hostname.includes('vhs') && !window.location.hostname.endsWith('bekind.support');
-    if (isSturnusDomain && !(user.email || '').endsWith('@murmuration.org')) {
-      showAlert('Access to STURNUS is restricted to murmuration.org accounts. Please use bekind.support instead.');
-      btn.disabled = false;
-      btn.textContent = 'Join the leaderboard';
-      return;
-    }
+      if (password) {
+        const { error: passErr } = await _supabase.auth.updateUser({ password });
+        if (passErr) {
+          showAlert('setup-alert-area', passErr.message);
+          btn.disabled = false;
+          btn.textContent = 'Join the leaderboard';
+          return;
+        }
+      }
 
-    // Auto-assign theme: murmuration.org → sturnus, everyone else → vhs
-    const theme = (user.email || '').endsWith('@murmuration.org') ? 'sturnus' : 'vhs';
+      const theme = (user.email || '').endsWith('@murmuration.org') ? 'sturnus' : 'vhs';
+      const { error: profileErr } = await _supabase.from('profiles').insert({
+        id: user.id, handle, role: 'user', score: 0, theme
+      });
 
-    // Create profile
-    const { error: profileErr } = await _supabase.from('profiles').insert({
-      id:     user.id,
-      handle: handle,
-      role:   'user',
-      score:  0,
-      theme:  theme
+      if (profileErr) {
+        const msg = profileErr.code === '23505'
+          ? 'That handle is already taken — try another.'
+          : profileErr.message;
+        showAlert('setup-alert-area', msg);
+        btn.disabled = false;
+        btn.textContent = 'Join the leaderboard';
+        return;
+      }
+
+      window.location.href = 'index.html';
     });
 
-    if (profileErr) {
-      const msg = profileErr.code === '23505'
-        ? 'That handle is already taken — try another.'
-        : profileErr.message;
-      showAlert(msg);
-      btn.disabled = false;
-      btn.textContent = 'Join the leaderboard';
+    document.getElementById('handle').addEventListener('keydown', e => {
+      if (e.key === 'Enter') document.getElementById('btn-save-setup').click();
+    });
+
+    return; // done for setup mode
+  }
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // DASHBOARD MODE — profile exists
+  // ════════════════════════════════════════════════════════════════════════════
+  document.getElementById('dashboard-view').classList.remove('hidden');
+  if (typeof applyTheme === 'function') applyTheme(profile.theme || 'vhs');
+
+  // Populate nav
+  Auth.populateNav(profile);
+
+  // ── Header ─────────────────────────────────────────────────────────────────
+  document.getElementById('profile-avatar').textContent = profile.handle.charAt(0).toUpperCase();
+  document.getElementById('profile-handle').textContent = profile.handle;
+  document.getElementById('nav-handle').textContent = profile.handle;
+  document.title = `${profile.handle} — Profile`;
+
+  // ── Load submissions + challenges in parallel ──────────────────────────────
+  const [subsRes, rankRes] = await Promise.all([
+    _supabase
+      .from('submissions')
+      .select('challenge_id, score_earned, hints_cost, first_blood, completed_at, difficulty_rating')
+      .eq('user_id', user.id)
+      .order('completed_at', { ascending: false }),
+    _supabase
+      .from('profiles')
+      .select('id', { count: 'exact', head: false })
+      .eq('theme', profile.theme)
+      .neq('role', 'admin')
+      .gt('score', profile.score)
+  ]);
+
+  const submissions = subsRes.data || [];
+  const rank = (rankRes.count ?? 0) + 1;
+
+  // Stats
+  const hintFreeCount = submissions.filter(s => s.hints_cost === 0).length;
+  const firstBloods   = submissions.filter(s => s.first_blood).length;
+
+  document.getElementById('stat-score').textContent    = (profile.role === 'admin' ? 999 : profile.score).toLocaleString();
+  document.getElementById('stat-rank').textContent     = '#' + rank;
+  document.getElementById('stat-solved').textContent   = submissions.length;
+  document.getElementById('stat-hintfree').textContent = hintFreeCount;
+
+  // Meta line under handle
+  const metaParts = [];
+  if (firstBloods > 0) metaParts.push(`${firstBloods} initial response${firstBloods !== 1 ? 's' : ''}`);
+  metaParts.push(profile.theme === 'sturnus' ? 'STURNUS' : 'V.H.S.');
+  document.getElementById('profile-meta').textContent = metaParts.join(' · ');
+
+  // ── Case history ───────────────────────────────────────────────────────────
+  document.getElementById('history-loading').style.display = 'none';
+
+  if (!submissions.length) {
+    document.getElementById('history-body').innerHTML =
+      '<div class="empty-history">No cases solved yet. <a href="index.html">Start one →</a></div>';
+    document.getElementById('history-count').textContent = '0 cases';
+  } else {
+    document.getElementById('history-count').textContent = `${submissions.length} case${submissions.length !== 1 ? 's' : ''}`;
+
+    // Fetch challenge titles for all submission IDs
+    const ids = submissions.map(s => s.challenge_id);
+    const { data: challenges } = await _supabase
+      .from('challenges')
+      .select('id, title')
+      .in('id', ids);
+
+    const chById = {};
+    (challenges || []).forEach(c => { chById[c.id] = c; });
+
+    const table = document.createElement('table');
+    table.className = 'history-table';
+    table.innerHTML = `<thead><tr>
+      <th>Case</th>
+      <th>Score</th>
+      <th>Badges</th>
+      <th>Date</th>
+    </tr></thead>`;
+
+    const tbody = document.createElement('tbody');
+    submissions.forEach(s => {
+      const ch = chById[s.challenge_id] || {};
+      const date = new Date(s.completed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+      const badges = [];
+      if (s.first_blood) badges.push('<span class="badge badge-warning" title="First to solve">Initial Response</span>');
+      if (s.hints_cost === 0) badges.push('<span class="badge badge-blue">Hint-free</span>');
+
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>
+          <div class="history-ch-id">${escHtml(s.challenge_id)}</div>
+          <div class="history-ch-title">
+            <a href="challenge.html?id=${encodeURIComponent(s.challenge_id)}" style="color:var(--text-secondary);text-decoration:none;">
+              ${escHtml(ch.title || '—')}
+            </a>
+          </div>
+        </td>
+        <td class="history-score">+${s.score_earned}</td>
+        <td><div class="history-badges">${badges.join('') || '<span style="color:var(--text-muted);font-size:11px;">—</span>'}</div></td>
+        <td class="history-date">${date}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    table.appendChild(tbody);
+    document.getElementById('history-body').appendChild(table);
+    document.getElementById('history-body').style.paddingBottom = '16px';
+  }
+
+  // ── Edit handle ────────────────────────────────────────────────────────────
+  const editHandleInput = document.getElementById('edit-handle');
+  editHandleInput.value = profile.handle;
+
+  const handleRe = /^[a-zA-Z0-9][a-zA-Z0-9\-]{1,22}[a-zA-Z0-9]$|^[a-zA-Z0-9]{3}$/;
+
+  document.getElementById('btn-save-handle').addEventListener('click', async () => {
+    const newHandle = editHandleInput.value.trim();
+    clearAlert('handle-alert');
+
+    if (!newHandle) { showAlert('handle-alert', 'Handle cannot be empty.'); return; }
+    if (!handleRe.test(newHandle)) {
+      showAlert('handle-alert', 'Handle must be 3–24 characters, letters/numbers/hyphens only.');
+      return;
+    }
+    if (newHandle === profile.handle) {
+      showAlert('handle-alert', 'That\'s already your handle.', 'info');
       return;
     }
 
-    window.location.href = 'index.html';
+    const btn = document.getElementById('btn-save-handle');
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+
+    const { error } = await _supabase
+      .from('profiles')
+      .update({ handle: newHandle })
+      .eq('id', user.id);
+
+    btn.disabled = false;
+    btn.textContent = 'Update handle';
+
+    if (error) {
+      const msg = error.code === '23505' ? 'That handle is already taken.' : error.message;
+      showAlert('handle-alert', msg);
+      return;
+    }
+
+    profile.handle = newHandle;
+    document.getElementById('profile-handle').textContent = newHandle;
+    document.getElementById('profile-avatar').textContent = newHandle.charAt(0).toUpperCase();
+    document.getElementById('nav-handle').textContent = newHandle;
+    document.title = `${newHandle} — Profile`;
+    showAlert('handle-alert', 'Handle updated.', 'success');
   });
 
-  document.getElementById('handle').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') document.getElementById('btn-save').click();
+  editHandleInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('btn-save-handle').click();
   });
+
+  // ── Change password ────────────────────────────────────────────────────────
+  document.getElementById('btn-save-password').addEventListener('click', async () => {
+    const pw1 = document.getElementById('new-pw').value;
+    const pw2 = document.getElementById('confirm-pw').value;
+    clearAlert('password-alert');
+
+    if (!pw1) { showAlert('password-alert', 'Enter a new password.'); return; }
+    if (pw1.length < 8) { showAlert('password-alert', 'Password must be at least 8 characters.'); return; }
+    if (pw1 !== pw2) { showAlert('password-alert', 'Passwords don\'t match.'); return; }
+
+    const btn = document.getElementById('btn-save-password');
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+
+    const { error } = await _supabase.auth.updateUser({ password: pw1 });
+
+    btn.disabled = false;
+    btn.textContent = 'Update password';
+
+    if (error) { showAlert('password-alert', error.message); return; }
+
+    document.getElementById('new-pw').value = '';
+    document.getElementById('confirm-pw').value = '';
+    showAlert('password-alert', 'Password updated.', 'success');
+  });
+
 })();
 </script>
 </body>

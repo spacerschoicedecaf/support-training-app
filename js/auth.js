@@ -81,7 +81,12 @@ const Auth = (() => {
     const logoutEl = document.getElementById('nav-logout');
     const adminEl  = document.getElementById('nav-admin');
 
-    if (handleEl) handleEl.textContent = profile.handle;
+    if (handleEl) {
+      handleEl.textContent = profile.handle;
+      handleEl.style.cursor = 'pointer';
+      handleEl.title = 'View profile';
+      handleEl.addEventListener('click', () => { window.location.href = 'profile.html'; });
+    }
     if (scoreEl)  scoreEl.textContent  = (profile.role === 'admin' ? 999 : profile.score).toLocaleString() + ' pts';
     if (logoutEl) logoutEl.addEventListener('click', (e) => { e.preventDefault(); signOut(); });
     if (adminEl) {

@@ -761,9 +761,17 @@ function qsAll(s) { return document.querySelectorAll(s); }
     if (existingReflection) qs('#reflection-text').value = existingReflection;
     if (existingRating) setRating(existingRating);
 
-    // Star buttons
-    qs('#star-rating').querySelectorAll('.star-btn').forEach(btn => {
+    // Star buttons — cumulative hover + click to lock in
+    const starBtns = [...qs('#star-rating').querySelectorAll('.star-btn')];
+    starBtns.forEach(btn => {
+      btn.addEventListener('mouseenter', () => {
+        const hVal = parseInt(btn.dataset.val);
+        starBtns.forEach(b => b.classList.toggle('star-hover', parseInt(b.dataset.val) <= hVal));
+      });
       btn.addEventListener('click', () => setRating(parseInt(btn.dataset.val)));
+    });
+    qs('#star-rating').addEventListener('mouseleave', () => {
+      starBtns.forEach(b => b.classList.remove('star-hover'));
     });
 
     // Save
@@ -793,6 +801,7 @@ function qsAll(s) { return document.querySelectorAll(s); }
   }
 
   function setRating(val) {
+    val = parseInt(val);
     selectedRating = val;
     qs('#star-rating').querySelectorAll('.star-btn').forEach(btn => {
       btn.classList.toggle('active', parseInt(btn.dataset.val) <= val);
