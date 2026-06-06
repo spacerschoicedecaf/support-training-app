@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>STURNUS — Dashboard</title>
   <link rel="stylesheet" href="css/app.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
   <!-- Theme pre-loader: runs before first paint to prevent flash -->
   <link id="theme-css" rel="stylesheet" href="">
   <script>(function(){try{var d=(window.location.hostname.includes("vhs")||window.location.hostname.endsWith("bekind.support"))?"vhs":"sturnus";var t=localStorage.getItem("lastTheme")||d;if(t==="vhs")document.getElementById("theme-css").href="css/theme-vhs.css";document.documentElement.dataset.themeLoading="1";}catch(e){}})()</script>
@@ -200,7 +201,7 @@
           ${done ? (() => {
             const sub = subById[ch.id] || {};
             const badges = ['<span class="badge badge-success">✓ Solved</span>'];
-            if (sub.first_blood) badges.push('<span class="badge badge-warning" title="First to solve">First Blood</span>');
+            if (sub.first_blood) badges.push('<span class="badge badge-warning" title="First to solve this case"><i class="ti ti-antenna" style="font-size:10px;" aria-hidden="true"></i> Initial Response</span>');
             if (sub.hints_cost === 0) badges.push('<span class="badge badge-blue" title="No hints used">Hint-free</span>');
             return badges.join('');
           })() : ch._isReview
