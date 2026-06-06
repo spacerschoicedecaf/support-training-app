@@ -109,7 +109,7 @@
       .order('created_at', { ascending: true }),
     _supabase
       .from('submissions')
-      .select('challenge_id, score_earned, completed_at')
+      .select('challenge_id, score_earned, hints_cost, first_blood, completed_at')
       .eq('user_id', ctx.user.id)
   ]);
 
@@ -168,7 +168,9 @@
   // Sort in original order (by id)
   challenges.sort((a, b) => a.id.localeCompare(b.id));
 
-  const doneIds = new Set(submissions.map(s => s.challenge_id));
+  const doneIds  = new Set(submissions.map(s => s.challenge_id));
+  const subById  = {};
+  submissions.forEach(s => { subById[s.challenge_id] = s; });
 
   document.getElementById('challenges-loading').style.display = 'none';
 
@@ -197,11 +199,15 @@
           <div class="challenge-card-meta">${pts} pts · ${(ch.questions||[]).length} question${(ch.questions||[]).length!==1?'s':''}</div>
         </div>
         <div class="challenge-card-right">
-          ${done
-            ? '<span class="badge badge-success">✓ Solved</span>'
-            : ch._isReview
-              ? '<span class="badge badge-warning">Review</span>'
-              : '<span class="badge badge-muted">Unsolved</span>'
+          ${done ? (() => {
+            const sub = subById[ch.id] || {};
+            const badges = ['<span class="badge badge-success">✓ Solved</span>'];
+            if (sub.first_blood) badges.push('<span class="badge badge-warning" title="First to solve">First Blood</span>');
+            if (sub.hints_cost === 0) badges.push('<span class="badge badge-blue" title="No hints used">Hint-free</span>');
+            return badges.join('');
+          })() : ch._isReview
+            ? '<span class="badge badge-warning">Review</span>'
+            : '<span class="badge badge-muted">Unsolved</span>'
           }
           <span class="pts-badge">${pts} pts</span>
         </div>

@@ -1150,6 +1150,50 @@ tr:hover td { background: var(--bg-overlay); }
 .debrief-row-result.correct { color: var(--text-success); }
 .debrief-row-result.wrong   { color: var(--text-danger);  }
 
+/* ─── Post-solve reflection panel ───────────────────────────────────────────── */
+.reflection-panel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-top: 16px;
+}
+.reflection-panel-header {
+  padding: 8px 12px;
+  background: var(--bg-overlay);
+  border-bottom: 1px solid var(--border);
+  font-size: 10px;
+  font-weight: bold;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+.reflection-panel-body { padding: 12px; }
+
+.star-rating {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+.star-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  color: var(--text-muted);
+  padding: 0 2px;
+  line-height: 1;
+  transition: color 0.1s, transform 0.1s;
+}
+.star-btn:hover,
+.star-btn.active { color: var(--text-warning); transform: scale(1.15); }
+.star-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-left: 6px;
+  align-self: center;
+  font-family: var(--font-mono);
+}
+
 /* ─── Utilities ─────────────────────────────────────────────────────────────── */
 .hidden { display: none !important; }
 .mt-4  { margin-top: 4px; }

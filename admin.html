@@ -67,6 +67,7 @@
     <button class="tab-btn active" data-tab="invite">Invite Users</button>
     <button class="tab-btn" data-tab="challenges">Challenges</button>
     <button class="tab-btn" data-tab="scores">All Scores</button>
+    <button class="tab-btn" data-tab="reflections">Reflections</button>
   </div>
 
   <!-- ── Tab: Invite ─────────────────────────────────────────────────────── -->
@@ -208,6 +209,11 @@
         </div>
 
         <div class="form-group">
+          <label for="f-tags">Skill Tags <span class="label-hint">JSON array of strings, e.g. ["log-analysis","smtp","mongodb"]</span></label>
+          <input type="text" id="f-tags" placeholder='["log-analysis","smtp","mongodb"]' class="mono-input">
+        </div>
+
+        <div class="form-group">
           <label for="f-variant-group">Variant Group <span class="label-hint">optional — slug shared by all variants of the same root cause, e.g. email-from-error</span></label>
           <input type="text" id="f-variant-group" placeholder="email-from-error" class="mono-input">
         </div>
@@ -277,6 +283,32 @@
     </div>
   </div>
 
+  <!-- ── Tab: Reflections ────────────────────────────────────────────────── -->
+  <div id="tab-reflections" class="tab-panel">
+    <div class="card">
+      <div class="card-header">
+        <h2>Post-mortem Reflections</h2>
+        <button class="btn btn-ghost btn-sm" id="btn-refresh-reflections">↻ Refresh</button>
+      </div>
+      <div class="table-wrap">
+        <div id="reflections-loading" class="loading-state"><div class="spinner"></div></div>
+        <table id="reflections-table" class="hidden">
+          <thead>
+            <tr>
+              <th>Handle</th>
+              <th>Challenge</th>
+              <th>Difficulty</th>
+              <th>Reflection</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+          <tbody id="reflections-tbody"></tbody>
+        </table>
+        <div id="reflections-empty" class="hidden loading-state text-muted" style="font-size:12px;">No reflections yet.</div>
+      </div>
+    </div>
+  </div>
+
 </div><!-- /container -->
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -315,8 +347,9 @@ function parseJsonField(raw, label) {
 
   const tabBtns   = document.querySelectorAll('.tab-btn');
   const tabPanels = document.querySelectorAll('.tab-panel');
-  let scoresLoaded = false;
-  let challengesLoaded = false;
+  let scoresLoaded       = false;
+  let challengesLoaded   = false;
+  let reflectionsLoaded  = false;
 
   tabBtns.forEach(btn => {
     btn.addEventListener('click', () => {
@@ -324,6 +357,7 @@ function parseJsonField(raw, label) {
       tabPanels.forEach(p => p.classList.toggle('active', p.id === `tab-${btn.dataset.tab}`));
       if (btn.dataset.tab === 'scores' && !scoresLoaded) loadScores();
       if (btn.dataset.tab === 'challenges' && !challengesLoaded) loadChallenges();
+      if (btn.dataset.tab === 'reflections' && !reflectionsLoaded) loadReflections();
     });
   });
 
@@ -485,6 +519,7 @@ function parseJsonField(raw, label) {
     document.getElementById('f-mongo-collections').value = JSON.stringify(ch.mongo_collections, null, 2);
     document.getElementById('f-hints').value    = JSON.stringify(ch.hints, null, 2);
     document.getElementById('f-questions').value     = JSON.stringify(ch.questions, null, 2);
+    document.getElementById('f-tags').value          = ch.tags ? JSON.stringify(ch.tags) : '[]';
     document.getElementById('f-variant-group').value = ch.variant_group || '';
     document.getElementById('f-active').checked      = ch.active;
 
@@ -503,6 +538,7 @@ function parseJsonField(raw, label) {
       document.getElementById(id).value = '';
     });
     document.getElementById('f-log-filename').value  = 'server-logs.json';
+    document.getElementById('f-tags').value          = '[]';
     document.getElementById('f-variant-group').value = '';
     document.getElementById('f-active').checked      = true;
     document.getElementById('btn-save-challenge').textContent = 'Save challenge';
@@ -572,6 +608,7 @@ function parseJsonField(raw, label) {
       mongo_collections:    mCols.value,
       questions:            qs_f.value,
       hints:                hints.value,
+      tags:                 (() => { try { return JSON.parse(document.getElementById('f-tags').value || '[]'); } catch(e) { return []; } })(),
       variant_group:        document.getElementById('f-variant-group').value.trim() || null,
       active:               document.getElementById('f-active').checked
     };
@@ -619,7 +656,7 @@ function parseJsonField(raw, label) {
     scoresLoaded = true;
     const [profilesRes, submissionsRes] = await Promise.all([
       _supabase.from('profiles').select('id, handle, score, theme, created_at').order('score', { ascending: false }),
-      _supabase.from('submissions').select('user_id, challenge_id, score_earned, completed_at')
+      _supabase.from('submissions').select('user_id, challenge_id, score_earned, completed_at, reflection, difficulty_rating')
     ]);
 
     document.getElementById('scores-loading').style.display = 'none';
@@ -777,6 +814,63 @@ function parseJsonField(raw, label) {
     document.getElementById('scores-loading').style.display = 'flex';
     document.getElementById('scores-table').classList.add('hidden');
     loadScores();
+  });
+
+  // ── Reflections ───────────────────────────────────────────────────────────────
+
+  const STARS = ['', '★☆☆☆☆', '★★☆☆☆', '★★★☆☆', '★★★★☆', '★★★★★'];
+  const DIFF_LABELS = ['', 'Very easy', 'Easy', 'About right', 'Hard', 'Very hard'];
+
+  async function loadReflections() {
+    reflectionsLoaded = true;
+
+    const [subsRes, profilesRes] = await Promise.all([
+      _supabase.from('submissions')
+        .select('user_id, challenge_id, reflection, difficulty_rating, completed_at')
+        .not('reflection', 'is', null)
+        .order('completed_at', { ascending: false }),
+      _supabase.from('profiles').select('id, handle')
+    ]);
+
+    document.getElementById('reflections-loading').style.display = 'none';
+
+    const subs     = subsRes.data || [];
+    const profiles = profilesRes.data || [];
+    const handleById = {};
+    profiles.forEach(p => { handleById[p.id] = p.handle; });
+
+    const withReflections = subs.filter(s => s.reflection && s.reflection.trim());
+
+    if (!withReflections.length) {
+      document.getElementById('reflections-empty').classList.remove('hidden');
+      return;
+    }
+
+    const table = document.getElementById('reflections-table');
+    table.classList.remove('hidden');
+    const tbody = document.getElementById('reflections-tbody');
+    tbody.innerHTML = '';
+
+    withReflections.forEach(s => {
+      const tr = document.createElement('tr');
+      const date = new Date(s.completed_at).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+      tr.innerHTML = `
+        <td style="font-weight:600;">${escHtml(handleById[s.user_id] || '—')}</td>
+        <td class="td-mono">${escHtml(s.challenge_id)}</td>
+        <td title="${DIFF_LABELS[s.difficulty_rating] || ''}" style="color:var(--text-warning);font-family:var(--font-mono);font-size:12px;">${STARS[s.difficulty_rating] || '—'}</td>
+        <td style="font-size:13px;max-width:400px;">${escHtml(s.reflection)}</td>
+        <td class="text-muted text-sm">${date}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  }
+
+  document.getElementById('btn-refresh-reflections').addEventListener('click', () => {
+    reflectionsLoaded = false;
+    document.getElementById('reflections-loading').style.display = 'flex';
+    document.getElementById('reflections-table').classList.add('hidden');
+    document.getElementById('reflections-empty').classList.add('hidden');
+    loadReflections();
   });
 
 })();

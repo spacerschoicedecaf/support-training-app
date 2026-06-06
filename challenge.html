@@ -233,6 +233,25 @@
         </div>
       </div>
 
+      <!-- Post-solve reflection -->
+      <div class="reflection-panel hidden" id="reflection-panel">
+        <div class="reflection-panel-header">Post-mortem</div>
+        <div class="reflection-panel-body">
+          <div class="star-rating" id="star-rating">
+            <span style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono);margin-right:4px;">Difficulty:</span>
+            <button class="star-btn" data-val="1">★</button>
+            <button class="star-btn" data-val="2">★</button>
+            <button class="star-btn" data-val="3">★</button>
+            <button class="star-btn" data-val="4">★</button>
+            <button class="star-btn" data-val="5">★</button>
+            <span class="star-label" id="star-label">—</span>
+          </div>
+          <textarea id="reflection-text" rows="3" placeholder="What would you check first next time? What was most misleading?" style="width:100%;margin-bottom:10px;font-family:var(--font-sans);font-size:13px;"></textarea>
+          <button class="btn btn-secondary btn-sm btn-block" id="btn-save-reflection">Save post-mortem</button>
+          <div id="reflection-feedback" style="margin-top:8px;font-size:11px;color:var(--text-muted);"></div>
+        </div>
+      </div>
+
       <a href="index.html" class="btn btn-ghost btn-sm" style="text-align:center;">← Back to challenges</a>
 
     </div><!-- /right col -->
@@ -291,7 +310,7 @@ function qsAll(s) { return document.querySelectorAll(s); }
   // Load challenge + user's existing submission + unlocked hints
   const [chRes, subRes, hintsRes] = await Promise.all([
     _supabase.from('challenges').select('*').eq('id', challengeId).eq('active', true).single(),
-    _supabase.from('submissions').select('*').eq('user_id', ctx.user.id).eq('challenge_id', challengeId).maybeSingle(),
+    _supabase.from('submissions').select('answers, score_earned, hints_cost, reflection, difficulty_rating').eq('user_id', ctx.user.id).eq('challenge_id', challengeId).maybeSingle(),
     _supabase.from('hint_unlocks').select('*').eq('user_id', ctx.user.id).eq('challenge_id', challengeId)
   ]);
 
@@ -373,6 +392,19 @@ function qsAll(s) { return document.querySelectorAll(s); }
   qs('#ch-title').textContent = ch.title;
   const totalPts = (ch.questions || []).reduce((s, q) => s + (q.points || 0), 0);
   qs('#ch-meta').textContent  = `${totalPts} base points · ${ch.hints.length} hint${ch.hints.length !== 1 ? 's' : ''} available`;
+
+  // Skill tags
+  if (ch.tags && ch.tags.length) {
+    const tagsEl = document.createElement('div');
+    tagsEl.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;';
+    ch.tags.forEach(tag => {
+      const span = document.createElement('span');
+      span.className = 'badge badge-muted';
+      span.textContent = tag;
+      tagsEl.appendChild(span);
+    });
+    qs('#ch-meta').after(tagsEl);
+  }
   qs('#ch-scenario').textContent = ch.scenario;
   qs('#ch-ticket').textContent   = ch.ticket_quote;
   qs('#ch-arch').textContent     = ch.arch_context;
@@ -669,9 +701,10 @@ function qsAll(s) { return document.querySelectorAll(s); }
 
   renderAllQuestions();
 
-  // If already fully submitted show debrief
+  // If already fully submitted show debrief + reflection
   if (submitted && submission) {
     showDebrief(submission.answers || [], submission.score_earned);
+    initReflection(submission.reflection || null, submission.difficulty_rating || null);
   }
 
   // ── Submit all ─────────────────────────────────────────────────────────────
@@ -711,7 +744,61 @@ function qsAll(s) { return document.querySelectorAll(s); }
     }
 
     showDebrief(data.graded, data.score_earned);
+    if (data.first_blood) showGlobalAlert('First Blood — you solved this before anyone else.');
+    initReflection(null, null);
   });
+
+  // ── Post-solve reflection ───────────────────────────────────────────────────
+
+  let selectedRating = 0;
+  const starLabels = ['', 'Very easy', 'Easy', 'About right', 'Hard', 'Very hard'];
+
+  function initReflection(existingReflection, existingRating) {
+    const panel = qs('#reflection-panel');
+    panel.classList.remove('hidden');
+
+    // Restore existing values if re-viewing a solved challenge
+    if (existingReflection) qs('#reflection-text').value = existingReflection;
+    if (existingRating) setRating(existingRating);
+
+    // Star buttons
+    qs('#star-rating').querySelectorAll('.star-btn').forEach(btn => {
+      btn.addEventListener('click', () => setRating(parseInt(btn.dataset.val)));
+    });
+
+    // Save
+    qs('#btn-save-reflection').addEventListener('click', async () => {
+      const text   = qs('#reflection-text').value.trim();
+      const rating = selectedRating || null;
+      const btn    = qs('#btn-save-reflection');
+      btn.disabled = true;
+      btn.textContent = 'Saving…';
+
+      const { data, error } = await _supabase.rpc('save_reflection', {
+        p_challenge_id:      ch.id,
+        p_reflection:        text || null,
+        p_difficulty_rating: rating
+      });
+
+      btn.disabled = false;
+      btn.textContent = 'Save post-mortem';
+
+      if (error || !data?.success) {
+        qs('#reflection-feedback').textContent = 'Could not save — ' + (data?.error || error?.message);
+      } else {
+        qs('#reflection-feedback').textContent = 'Saved.';
+        setTimeout(() => { qs('#reflection-feedback').textContent = ''; }, 3000);
+      }
+    });
+  }
+
+  function setRating(val) {
+    selectedRating = val;
+    qs('#star-rating').querySelectorAll('.star-btn').forEach(btn => {
+      btn.classList.toggle('active', parseInt(btn.dataset.val) <= val);
+    });
+    qs('#star-label').textContent = starLabels[val] || '—';
+  }
 
   function showDebrief(graded, scoreEarned) {
     const panel = qs('#debrief-panel');
