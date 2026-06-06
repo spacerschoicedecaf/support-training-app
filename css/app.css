@@ -896,6 +896,28 @@ tr:hover td { background: var(--bg-overlay); }
   background: var(--border-muted);
 }
 
+/* Collapsible evidence sections */
+.evidence-section.collapsible > .section-label {
+  cursor: pointer;
+  user-select: none;
+}
+.evidence-section.collapsible > .section-label::before {
+  content: '▾';
+  font-size: 11px;
+  color: var(--text-muted);
+  transition: transform 0.15s;
+  flex-shrink: 0;
+}
+.evidence-section.collapsible.collapsed > .section-label::before {
+  transform: rotate(-90deg);
+}
+.evidence-section.collapsible.collapsed > *:not(.section-label) {
+  display: none;
+}
+.evidence-section.collapsible > .section-label:hover {
+  color: var(--text-secondary);
+}
+
 /* ─── Alert ─────────────────────────────────────────────────────────────────── */
 .alert {
   display: flex;

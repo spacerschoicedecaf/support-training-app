@@ -27,6 +27,12 @@
   <button class="nav-link" id="nav-logout">Sign out</button>
 </nav>
 
+<!-- Mobile warning (hidden on desktop via CSS) -->
+<div id="mobile-warning" style="display:none;background:var(--warning-bg);border-bottom:1px solid var(--text-warning);padding:10px 16px;font-size:12px;color:var(--text-warning);text-align:center;letter-spacing:0.5px;">
+  ⚠ Best experienced on desktop — challenges include a MongoDB terminal and log viewer.
+</div>
+<style>@media(max-width:700px){#mobile-warning{display:block!important;}}</style>
+
 <!-- Content -->
 <div class="container">
   <div class="page-header">
