@@ -366,7 +366,7 @@ function parseJsonField(raw, label) {
     challengesLoaded = true;
     const { data: challenges, error } = await _supabase
       .from('challenges')
-      .select('id, title, questions, active, created_at')
+      .select('id, title, questions, active, variant_group, created_at')
       .order('created_at', { ascending: true });
 
     document.getElementById('ch-table-loading').style.display = 'none';
