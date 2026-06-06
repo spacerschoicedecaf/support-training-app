@@ -82,7 +82,7 @@ const Auth = (() => {
     const adminEl  = document.getElementById('nav-admin');
 
     if (handleEl) handleEl.textContent = profile.handle;
-    if (scoreEl)  scoreEl.textContent  = profile.score.toLocaleString() + ' pts';
+    if (scoreEl)  scoreEl.textContent  = (profile.role === 'admin' ? 999 : profile.score).toLocaleString() + ' pts';
     if (logoutEl) logoutEl.addEventListener('click', (e) => { e.preventDefault(); signOut(); });
     if (adminEl) {
       if (profile.role === 'admin') {

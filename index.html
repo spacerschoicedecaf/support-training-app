@@ -207,6 +207,7 @@
     .from('profiles')
     .select('id, handle, score')
     .eq('theme', ctx.profile.theme)
+    .neq('role', 'admin')
     .order('score', { ascending: false })
     .limit(20);
 
