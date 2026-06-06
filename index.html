@@ -168,9 +168,7 @@
   // Sort in original order (by id)
   challenges.sort((a, b) => a.id.localeCompare(b.id));
 
-  const doneIds  = new Set(submissions.map(s => s.challenge_id));
-  const subById  = {};
-  submissions.forEach(s => { subById[s.challenge_id] = s; });
+  const doneIds = new Set(submissions.map(s => s.challenge_id));
 
   document.getElementById('challenges-loading').style.display = 'none';
 
