@@ -115,11 +115,6 @@
         // Web Vitals: LCP, INP (replaces FID), CLS, TTFB, FCP.
         new sdk.WebVitalsInstrumentation(),
 
-        // Captures fetch() and XMLHttpRequest timing + status codes.
-        // Useful for seeing Supabase RPC latency in Grafana.
-        new sdk.FetchInstrumentation(),
-        new sdk.XHRInstrumentation(),
-
         // Captures console.warn and console.error calls as log events.
         new sdk.ConsoleInstrumentation({
           disabledLevels: ['log', 'debug', 'info'], // only warn + error
