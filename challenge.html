@@ -389,7 +389,7 @@ function qsAll(s) { return document.querySelectorAll(s); }
   async function unlockHint(idx, cost) {
     if (submitted) return;
 
-    const currentScore = ctx.profile.score - hintsCost; // approximate
+    const currentScore = ctx.profile.role === 'admin' ? 999 : ctx.profile.score - hintsCost;
     if (cost > 0 && currentScore < cost) {
       alert('Not enough points to unlock this hint.');
       return;
