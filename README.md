@@ -84,11 +84,28 @@ Each challenge is a Postgres JSON row:
 
 ## Admin Features
 
-- Invite users by email
-- Add/edit/delete/toggle challenges with full JSON form
-- View all scores with per-user theme badges and one-click theme switching
-- Reset individual user scores (wipes submissions and hint unlocks)
-- **Force Variant** — immediately triggers the next variant for a group (bypasses 90-day cooldown)
+### Invite Users tab
+Send a magic-link invite by email. The recipient sets their handle on first click. Invite-only mode is enforced via Supabase Auth — disable email signups in the Supabase dashboard to prevent self-registration. The invite function requires Vercel deployment (it uses the service role key).
+
+### Challenges tab
+
+**Add / Edit challenge** — full JSON form for all challenge fields. Required fields: ID, title, scenario, ticket quote, server logs, MongoDB collections, hints, questions. Optional: Variant Group (slug).
+
+**Duplicate** — copies all fields from an existing challenge into the form with a suggested new ID (e.g. TICKET-001-B), timestamps shifted back 30–90 days randomly, and MongoDB ObjectIds regenerated. The duplicate starts as inactive. Review it, swap out company names and person names, set the same Variant Group slug as the original, then save. This is the primary workflow for creating variant challenges.
+
+**Force Variant** — appears on any challenge that has a Variant Group set. Back-dates all submissions in that group to 92 days ago so the next variant appears immediately for all users. Use this to test variant rotation without waiting 90 days. Only visible when a Variant Group slug is set on the challenge.
+
+**Toggle Active/Inactive** — hide a challenge from users without deleting it. Useful for staging new content.
+
+**Delete** — permanent. Also removes all submissions and hint unlocks for that challenge via cascade.
+
+### All Scores tab
+
+Shows all users across both themes with their handle, theme badge, total score, and number of challenges solved.
+
+**Switch Theme** — move a user between STURNUS and V.H.S. with one click. Takes effect on their next page load.
+
+**Reset Scores** — wipes a user's score to 0, deletes all their submissions and hint unlocks. Useful for testing. The button is disabled for users with no score and no submissions.
 
 ---
 
