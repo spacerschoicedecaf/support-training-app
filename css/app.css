@@ -1053,6 +1053,11 @@ tr:hover td { background: var(--bg-overlay); }
 }
 .question-block-header .q-label { color: var(--text-secondary); }
 .question-block-header .q-pts   { color: var(--text-warning); font-family: var(--font-mono); }
+.question-block-header { cursor: pointer; user-select: none; }
+.question-block-header::before { content: '▾'; margin-right: 6px; color: var(--text-muted); font-size: 10px; }
+.question-block.q-collapsed .question-block-header::before { content: '▸'; }
+.question-block.q-collapsed .question-block-body { display: none; }
+.question-block.q-collapsed .question-block-header { border-bottom: none; }
 
 .question-block-body { padding: 12px; }
 
