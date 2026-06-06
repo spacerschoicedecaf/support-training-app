@@ -130,13 +130,13 @@
       </div>
 
       <!-- Architecture Context -->
-      <div class="evidence-section collapsible">
+      <div class="evidence-section collapsible collapsed">
         <div class="section-label">Architecture Context</div>
         <div class="arch-box" id="ch-arch"></div>
       </div>
 
       <!-- Red Herrings -->
-      <div class="evidence-section collapsible" id="red-herrings-section">
+      <div class="evidence-section collapsible collapsed" id="red-herrings-section">
         <div class="section-label">Observed Data Points</div>
         <div class="alert alert-warning mb-8" style="font-size:12px;padding:8px 12px;">
           Not all of these are relevant. Part of the challenge is identifying which data actually matters.
@@ -211,12 +211,12 @@
       </div>
 
       <!-- Questions (multi-question progressive reveal) -->
-      <div class="card">
-        <div class="card-header">
-          <h2>🧠 Diagnosis</h2>
+      <div class="card" id="diagnosis-card">
+        <div class="card-header" id="diagnosis-toggle" style="cursor:pointer;user-select:none;" title="Click to expand">
+          <h2>🧠 Diagnosis <span style="font-size:10px;color:var(--text-muted);font-weight:normal;margin-left:6px;">▸ click to expand</span></h2>
           <span class="text-muted text-sm" id="q-progress"></span>
         </div>
-        <div class="card-body">
+        <div class="card-body" id="diagnosis-body" style="display:none;">
           <div id="questions-container"></div>
           <div style="margin-top:14px;">
             <button class="btn btn-primary btn-block" id="btn-submit-all" disabled style="display:none;">
@@ -841,13 +841,24 @@ function qsAll(s) { return document.querySelectorAll(s); }
 </script>
 
 <script>
-// Collapsible sections — event delegation on the left column
+// Collapsible evidence sections
 document.addEventListener('click', function(e) {
   var label = e.target.closest('.evidence-section.collapsible .section-label');
   if (label) {
     label.closest('.evidence-section').classList.toggle('collapsed');
   }
 });
+
+// Collapsible diagnosis card
+var diagToggle = document.getElementById('diagnosis-toggle');
+var diagBody   = document.getElementById('diagnosis-body');
+if (diagToggle && diagBody) {
+  diagToggle.addEventListener('click', function() {
+    var open = diagBody.style.display !== 'none';
+    diagBody.style.display = open ? 'none' : '';
+    diagToggle.querySelector('span').textContent = open ? '▸ click to expand' : '▾ click to collapse';
+  });
+}
 </script>
 </body>
 </html>
