@@ -145,7 +145,7 @@
       </div>
 
       <!-- Server Logs -->
-      <div class="evidence-section collapsible">
+      <div class="evidence-section">
         <div class="section-label">Evidence Files</div>
         <div class="card" style="padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
           <div style="display:flex;align-items:center;gap:12px;">
@@ -454,6 +454,7 @@ function qsAll(s) { return document.querySelectorAll(s); }
     let blockClass = 'question-block';
     if (locked)         blockClass += ' locked';
     if (state.checked)  blockClass += state.selected === q.correct_option ? ' answered-correct' : ' answered-wrong';
+    if (!state.checked && !submitted) blockClass += ' q-collapsed';
 
     const pts = q.points || 0;
 
@@ -846,6 +847,12 @@ document.addEventListener('click', function(e) {
   var label = e.target.closest('.evidence-section.collapsible .section-label');
   if (label) {
     label.closest('.evidence-section').classList.toggle('collapsed');
+    return;
+  }
+  // Collapsible question blocks
+  var qHeader = e.target.closest('.question-block .question-block-header');
+  if (qHeader) {
+    qHeader.closest('.question-block').classList.toggle('q-collapsed');
   }
 });
 
