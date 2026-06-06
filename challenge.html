@@ -829,13 +829,6 @@ function qsAll(s) { return document.querySelectorAll(s); }
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); runMongoQuery(); }
   });
 
-  // ── Collapsible sections ────────────────────────────────────────────────────
-
-  document.querySelectorAll('.evidence-section.collapsible .section-label').forEach(label => {
-    label.addEventListener('click', () => {
-      label.closest('.evidence-section').classList.toggle('collapsed');
-    });
-  });
 
   // ── Error helper ───────────────────────────────────────────────────────────
 
@@ -845,6 +838,15 @@ function qsAll(s) { return document.querySelectorAll(s); }
   }
 
 })();
+</script>
+
+<script>
+// Collapsible sections — runs after DOM is ready, independent of data loading
+document.querySelectorAll('.evidence-section.collapsible .section-label').forEach(function(label) {
+  label.addEventListener('click', function() {
+    label.closest('.evidence-section').classList.toggle('collapsed');
+  });
+});
 </script>
 </body>
 </html>
