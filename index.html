@@ -138,27 +138,31 @@
   });
 
   Object.values(groups).forEach(variants => {
-    // Find most recent submission across this group
-    const groupSubs = variants.map(ch => subById[ch.id]).filter(Boolean)
+    const done   = variants.filter(ch =>  subById[ch.id]);
+    const unseen = variants.filter(ch => !subById[ch.id]);
+
+    // Always show completed challenges — they belong in the Solved section
+    challenges.push(...done);
+
+    // Nothing unseen left to rotate
+    if (unseen.length === 0) return;
+
+    const groupSubs = done.map(ch => subById[ch.id])
       .sort((a, b) => new Date(b.completed_at) - new Date(a.completed_at));
 
     if (groupSubs.length === 0) {
-      // Never done any — show first variant
-      challenges.push(variants[0]);
+      // Never done any in group — show the first unseen variant
+      challenges.push(unseen[0]);
       return;
     }
 
     const lastSub = groupSubs[0];
     const daysSince = (Date.now() - new Date(lastSub.completed_at)) / 86400000;
 
-    if (daysSince < REVIEW_DAYS) return; // still in cooldown, hide group
+    if (daysSince < REVIEW_DAYS) return; // cooldown active — no new unsolved yet
 
-    // Due for review — pick a different variant than last time
-    const lastDoneId = lastSub.challenge_id;
-    const unseen = variants.filter(ch => !subById[ch.id]);
-    const next = unseen.length > 0 ? unseen[0]
-      : (variants.find(ch => ch.id !== lastDoneId) || variants[0]);
-    challenges.push({ ...next, _isReview: true });
+    // Cooldown expired — surface next unseen variant as review
+    challenges.push({ ...unseen[0], _isReview: true });
   });
 
   // Sort in original order (by id)
