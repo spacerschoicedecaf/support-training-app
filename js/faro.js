@@ -105,27 +105,9 @@
         environment: ENVIRONMENT,
       },
 
-      // ── Instrumentations ────────────────────────────────────────────────────
-      // The default set is reasonable. We add the full list explicitly so it's
-      // clear what's active and easy to comment out individual items.
-      instrumentations: [
-        // Captures unhandled JS errors and promise rejections.
-        new sdk.ErrorsInstrumentation(),
-
-        // Web Vitals: LCP, INP (replaces FID), CLS, TTFB, FCP.
-        new sdk.WebVitalsInstrumentation(),
-
-        // Captures console.warn and console.error calls as log events.
-        new sdk.ConsoleInstrumentation({
-          disabledLevels: ['log', 'debug', 'info'], // only warn + error
-        }),
-
-        // Captures page view transitions (navigation between HTML pages).
-        new sdk.NavigationsInstrumentation(),
-
-        // Captures resource load failures (scripts, stylesheets, images).
-        new sdk.ResourcesInstrumentation(),
-      ],
+      // Uses Faro's default instrumentation set: errors, web vitals, console,
+      // navigations, and resource failures. No explicit list needed for the
+      // IIFE bundle — constructor names differ from the npm package exports.
 
       // ── Sampling ────────────────────────────────────────────────────────────
       // 100% of sessions — fine for a low-traffic training app. If you ever
