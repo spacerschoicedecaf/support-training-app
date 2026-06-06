@@ -528,9 +528,14 @@ function qsAll(s) { return document.querySelectorAll(s); }
           const oi = parseInt(el.dataset.oi);
           if (qState[qi].checked || submitted) return;
           qState[qi].selected = oi;
-          // Re-render just this block
-          const block = qs(`#qblock-${qi}`);
-          block.outerHTML = renderQuestion(qi);
+          // Preserve expanded/collapsed state across re-render
+          const oldBlock = qs(`#qblock-${qi}`);
+          const wasCollapsed = oldBlock && oldBlock.classList.contains('q-collapsed');
+          oldBlock.outerHTML = renderQuestion(qi);
+          if (!wasCollapsed) {
+            const newBlock = qs(`#qblock-${qi}`);
+            if (newBlock) newBlock.classList.remove('q-collapsed');
+          }
           attachQuestionListeners();
           updateSubmitAllBtn();
         });
@@ -550,9 +555,11 @@ function qsAll(s) { return document.querySelectorAll(s); }
     if (qState[qi].selected === -1 || qState[qi].checked) return;
     qState[qi].checked = true;
 
-    // Rebuild this block
+    // Rebuild this block, keeping it expanded since user is actively checking
     const block = qs(`#qblock-${qi}`);
     block.outerHTML = renderQuestion(qi);
+    const newBlock = qs(`#qblock-${qi}`);
+    if (newBlock) newBlock.classList.remove('q-collapsed');
     attachQuestionListeners();
 
     // If there's a next question, re-render it to unlock it
