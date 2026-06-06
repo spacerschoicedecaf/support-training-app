@@ -399,6 +399,7 @@ function parseJsonField(raw, label) {
         <td>
           <div class="challenge-row-actions">
             <button class="btn btn-ghost btn-sm btn-edit-ch" data-id="${escHtml(ch.id)}">Edit</button>
+            <button class="btn btn-ghost btn-sm btn-duplicate-ch" data-id="${escHtml(ch.id)}" title="Duplicate with randomized timestamps and IDs">Duplicate</button>
             ${ch.variant_group ? `<button class="btn btn-ghost btn-sm btn-force-variant" data-group="${escHtml(ch.variant_group)}" title="Back-date all group submissions to force next variant to appear">Force Variant</button>` : ''}
             <button class="btn btn-danger btn-sm btn-delete-ch" data-id="${escHtml(ch.id)}" data-title="${escHtml(ch.title)}">Delete</button>
           </div>
@@ -427,6 +428,11 @@ function parseJsonField(raw, label) {
           showGlobalAlert(`Variant forced for group "${group}" — next visit will show the next variant.`);
         }
       });
+    });
+
+    // Duplicate
+    tbody.querySelectorAll('.btn-duplicate-ch').forEach(btn => {
+      btn.addEventListener('click', () => duplicateChallenge(btn.dataset.id, challenges));
     });
 
     // Edit
@@ -694,6 +700,76 @@ function parseJsonField(raw, label) {
         await loadScores();
       });
     });
+  }
+
+  // ── Duplicate challenge with randomized data ─────────────────────────────────
+
+  function randomizeJson(obj) {
+    const SHIFT_DAYS = Math.floor(Math.random() * 60 + 30); // shift 30–90 days back
+    const SHIFT_MS   = SHIFT_DAYS * 24 * 60 * 60 * 1000;
+
+    let json = JSON.stringify(obj);
+
+    // Shift all ISO 8601 timestamps
+    json = json.replace(/(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z)/g, match => {
+      const d = new Date(match);
+      return isNaN(d) ? match : new Date(d.getTime() - SHIFT_MS).toISOString();
+    });
+
+    // Regenerate all MongoDB ObjectIds (24 hex chars)
+    json = json.replace(/([0-9a-f]{24})/g, () =>
+      Array.from({length: 24}, () => Math.floor(Math.random() * 16).toString(16)).join('')
+    );
+
+    return JSON.parse(json);
+  }
+
+  function suggestVariantId(originalId, allChallenges) {
+    const ids = allChallenges.map(c => c.id);
+    for (const s of ['B','C','D','E','F','G','H']) {
+      const candidate = originalId + '-' + s;
+      if (!ids.includes(candidate)) return candidate;
+    }
+    return originalId + '-' + Date.now();
+  }
+
+  async function duplicateChallenge(id, allChallenges) {
+    const { data: ch, error } = await _supabase
+      .from('challenges').select('*').eq('id', id).single();
+    if (error || !ch) { showGlobalAlert('Failed to load challenge.', 'danger'); return; }
+
+    const newId     = suggestVariantId(id, allChallenges);
+    const randomized = randomizeJson({
+      server_logs:       ch.server_logs,
+      mongo_collections: ch.mongo_collections
+    });
+
+    // Pre-fill form with duplicated + randomized data
+    document.getElementById('form-panel-title').textContent = 'Duplicate of ' + id;
+    document.getElementById('f-edit-id').value   = '';  // new challenge, not an edit
+    document.getElementById('f-id').value        = newId;
+    document.getElementById('f-id').disabled     = false;
+    document.getElementById('f-title').value     = ch.title;
+    document.getElementById('f-scenario').value  = ch.scenario;
+    document.getElementById('f-ticket').value    = ch.ticket_quote;
+    document.getElementById('f-arch').value      = ch.arch_context;
+    document.getElementById('f-red-herrings').value   = JSON.stringify(ch.red_herrings, null, 2);
+    document.getElementById('f-server-logs').value    = JSON.stringify(randomized.server_logs, null, 2);
+    document.getElementById('f-log-filename').value   = ch.server_logs_filename;
+    document.getElementById('f-mongo-collections').value = JSON.stringify(randomized.mongo_collections, null, 2);
+    document.getElementById('f-hints').value    = JSON.stringify(ch.hints, null, 2);
+    document.getElementById('f-questions').value = JSON.stringify(ch.questions, null, 2);
+    document.getElementById('f-variant-group').value = ch.variant_group || '';
+    document.getElementById('f-active').checked  = false; // start inactive until reviewed
+    document.getElementById('btn-save-challenge').textContent = 'Save duplicate';
+    document.getElementById('form-save-feedback').innerHTML  = '';
+
+    // Switch to challenges tab and scroll to form
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === 'challenges'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-challenges'));
+    document.getElementById('challenge-form-panel').scrollIntoView({ behavior: 'smooth' });
+
+    showGlobalAlert(`Duplicated from ${id} → ${newId}. Timestamps and IDs randomized. Review, edit the company/names, then save.`);
   }
 
   document.getElementById('btn-refresh-scores').addEventListener('click', () => {
