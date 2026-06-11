@@ -249,15 +249,22 @@
         <!-- ── MongoDB Collections ───────────────────────────── -->
         <div class="form-group">
           <label for="f-mongo-collections">MongoDB Collections <span class="label-hint">JSON array</span></label>
-          <textarea id="f-mongo-collections" rows="8" class="mono-input" placeholder='[
+          <textarea id="f-mongo-collections" rows="10" class="mono-input" placeholder='[
   {
-    "collection": "calls",
+    "database": "accounts",
+    "collection": "organizations",
     "required_field": "organizationId",
     "synthetic_docs": [{"_id": {"$oid": "..."}, "organizationId": "abc123"}]
+  },
+  {
+    "database": "profile_db",
+    "collection": "users",
+    "required_field": "orgId",
+    "synthetic_docs": [{"_id": {"$oid": "..."}, "orgId": "abc123", "email": "user@co.com"}]
   }
 ]'></textarea>
-          <div class="json-hint">[{"collection":"name","required_field":"fieldName","synthetic_docs":[{...}]}, ...]</div>
-          <div class="json-hint" style="margin-top:4px;color:var(--text-muted);">Add extra collections with irrelevant docs to make the investigation harder.</div>
+          <div class="json-hint">[{"database":"db_name","collection":"name","required_field":"field","synthetic_docs":[{...}]}, ...]</div>
+          <div class="json-hint" style="margin-top:4px;color:var(--text-muted);">The <strong>database</strong> field controls which DB each collection appears in — users must <kbd>use &lt;db&gt;</kbd> to find it. Omit to default to "cluster0". Add decoy collections to make investigation harder.</div>
         </div>
 
         <!-- ── Hints Builder ──────────────────────────────────── -->

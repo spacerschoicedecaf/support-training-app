@@ -163,7 +163,7 @@
         <div class="mongo-terminal">
           <div class="mongo-terminal-header">
             <div class="mongo-dot"></div>
-            <span class="mongo-title">Atlas Shell — shared-cluster</span>
+            <span class="mongo-title" id="mongo-db-title">Atlas Shell — cluster0</span>
           </div>
           <div class="mongo-terminal-output" id="mongo-output">
             <div class="mongo-line mongo-line-system">Connected to Atlas. Supported commands: <kbd>show collections</kbd> · <kbd>db.col.find({filter})</kbd> · <kbd>db.col.findOne({filter})</kbd> · <kbd>db.col.countDocuments({filter})</kbd> · <kbd>db.col.distinct("field")</kbd> · chain <kbd>.sort({field:1})</kbd> and <kbd>.limit(N)</kbd></div>
@@ -182,6 +182,7 @@
             <button class="btn btn-ghost btn-sm" id="btn-clear-terminal">Clear</button>
             <button class="btn btn-ghost btn-sm" id="btn-export-json" disabled title="Run a query first">⬇ Export JSON</button>
             <span class="text-muted text-sm">Ctrl+Enter to run</span>
+            <a href="mongo-reference.html" target="_blank" class="text-muted text-sm" style="margin-left:auto;color:var(--text-link);text-decoration:none;font-size:11px;">Query reference ↗</a>
           </div>
         </div>
       </div>
@@ -925,48 +926,52 @@ function qsAll(s) { return document.querySelectorAll(s); }
 
   // ── MongoDB Terminal ────────────────────────────────────────────────────────
 
-  const mongoCollections = ch.mongo_collections || [];
-  const outputEl   = document.getElementById('mongo-output');
-  const queryEl    = document.getElementById('mongo-query');
-  const exportBtn  = document.getElementById('btn-export-json');
-  let   lastResult = null; // { filename, data }
+  // Build database map from mongo_collections: { dbName -> [col, ...] }
+  const dbMap = {};
+  (ch.mongo_collections || []).forEach(col => {
+    const db = col.database || 'cluster0';
+    if (!dbMap[db]) dbMap[db] = [];
+    dbMap[db].push(col);
+  });
+  const allDbs    = Object.keys(dbMap).sort();
+  let   currentDb = allDbs[0] || 'cluster0';
+
+  const outputEl  = document.getElementById('mongo-output');
+  const queryEl   = document.getElementById('mongo-query');
+  const exportBtn = document.getElementById('btn-export-json');
+  let   lastResult = null;
+
+  function updateDbTitle() {
+    const el = document.getElementById('mongo-db-title');
+    if (el) el.textContent = `Atlas Shell — ${currentDb}`;
+  }
+  updateDbTitle();
+
+  function currentCols() { return dbMap[currentDb] || []; }
+  function getCol(name)   { return currentCols().find(c => c.collection === name) || null; }
 
   exportBtn.addEventListener('click', () => {
     if (!lastResult) return;
     const blob = new Blob([JSON.stringify(lastResult.data, null, 2)], { type: 'application/json' });
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
-    a.href     = url;
-    a.download = lastResult.filename;
-    a.click();
+    a.href = url; a.download = lastResult.filename; a.click();
     URL.revokeObjectURL(url);
   });
 
   function appendLine(text, type = 'result') {
     const el = document.createElement('div');
-    if (type === 'command') {
-      el.className = 'mongo-line mongo-line-command';
-      el.textContent = '> ' + text;
-    } else if (type === 'count') {
-      el.className = 'mongo-line mongo-line-count';
-      el.textContent = text;
-    } else if (type === 'error') {
-      el.className = 'mongo-line mongo-line-error';
-      el.textContent = text;
-    } else if (type === 'system') {
-      el.className = 'mongo-line mongo-line-system';
-      el.innerHTML = text;
-    } else {
-      el.className = 'mongo-line mongo-line-result';
-      el.textContent = text;
-    }
+    if      (type === 'command') { el.className = 'mongo-line mongo-line-command'; el.textContent = '> ' + text; }
+    else if (type === 'count')   { el.className = 'mongo-line mongo-line-count';   el.textContent = text; }
+    else if (type === 'error')   { el.className = 'mongo-line mongo-line-error';   el.textContent = text; }
+    else if (type === 'system')  { el.className = 'mongo-line mongo-line-system';  el.innerHTML   = text; }
+    else                         { el.className = 'mongo-line mongo-line-result';  el.textContent = text; }
     outputEl.appendChild(el);
     outputEl.scrollTop = outputEl.scrollHeight;
   }
 
-  // ── Filter engine ─────────────────────────────────────────────────────────
+  // ── Filter engine ──────────────────────────────────────────────────────────
 
-  // Unwrap MongoDB extended JSON leaf values ($oid, $date) for comparison
   function unwrap(val) {
     if (val && typeof val === 'object') {
       if (val.$oid)  return val.$oid;
@@ -975,48 +980,62 @@ function qsAll(s) { return document.querySelectorAll(s); }
     return val;
   }
 
-  // Read a (possibly dot-notation) path from a doc, unwrapping extended JSON
   function getPath(doc, path) {
     let cur = doc;
     for (const part of path.split('.')) {
-      if (cur === null || cur === undefined) return undefined;
+      if (cur == null) return undefined;
       cur = typeof cur === 'object' ? cur[part] : undefined;
     }
     return unwrap(cur);
   }
 
-  // Return true if doc matches a flat filter object (AND semantics)
+  function checkFieldOp(docVal, op, opVal, parentObj) {
+    switch (op) {
+      case '$eq':     return unwrap(docVal) === unwrap(opVal);
+      case '$ne':     return unwrap(docVal) !== unwrap(opVal);
+      case '$gt':     return docVal >  opVal;
+      case '$gte':    return docVal >= opVal;
+      case '$lt':     return docVal <  opVal;
+      case '$lte':    return docVal <= opVal;
+      case '$in':     return Array.isArray(opVal) && opVal.map(unwrap).includes(unwrap(docVal));
+      case '$nin':    return Array.isArray(opVal) && !opVal.map(unwrap).includes(unwrap(docVal));
+      case '$exists': { const e = docVal !== undefined && docVal !== null; return e === !!opVal; }
+      case '$regex':  { try { return new RegExp(opVal, parentObj?.$options || '').test(String(docVal ?? '')); } catch { return false; } }
+      case '$options': return true; // consumed by $regex
+      default: return true;
+    }
+  }
+
   function matchesFilter(doc, filter) {
-    if (!filter || Object.keys(filter).length === 0) return true;
+    if (!filter || typeof filter !== 'object' || Array.isArray(filter)) return true;
+
     for (const [key, value] of Object.entries(filter)) {
+      // ── Logical operators ──────────────────────────────────────────────────
+      if (key === '$or')  { if (!Array.isArray(value) || !value.some(f  => matchesFilter(doc, f))) return false; continue; }
+      if (key === '$and') { if (!Array.isArray(value) || !value.every(f => matchesFilter(doc, f))) return false; continue; }
+      if (key === '$nor') { if (!Array.isArray(value) ||  value.some(f  => matchesFilter(doc, f))) return false; continue; }
+
       const docVal = getPath(doc, key);
-      // Operator object e.g. { $gt: 5 }
+
       if (value !== null && typeof value === 'object' && !value.$oid && !value.$date && !Array.isArray(value)) {
+        // Operator expression(s)
         for (const [op, opVal] of Object.entries(value)) {
-          switch (op) {
-            case '$eq':     if (docVal !== opVal)                          return false; break;
-            case '$ne':     if (docVal === opVal)                          return false; break;
-            case '$gt':     if (!(docVal >  opVal))                        return false; break;
-            case '$gte':    if (!(docVal >= opVal))                        return false; break;
-            case '$lt':     if (!(docVal <  opVal))                        return false; break;
-            case '$lte':    if (!(docVal <= opVal))                        return false; break;
-            case '$in':     if (!Array.isArray(opVal) || !opVal.map(unwrap).includes(unwrap(docVal))) return false; break;
-            case '$nin':    if (!Array.isArray(opVal) ||  opVal.map(unwrap).includes(unwrap(docVal))) return false; break;
-            case '$exists': { const exists = docVal !== undefined; if (exists !== !!opVal) return false; break; }
-            case '$regex':  { try { if (!new RegExp(opVal, value.$options||'').test(String(docVal??''))) return false; } catch(e) { return false; } break; }
-            case '$options': break; // handled above
-            default: break;
+          if (op === '$not') {
+            // Field-level $not: {field: {$not: {$gt: 5}}}
+            const innerPasses = Object.entries(opVal).every(([iop, ival]) => checkFieldOp(docVal, iop, ival, opVal));
+            if (innerPasses) return false;
+          } else {
+            if (!checkFieldOp(docVal, op, opVal, value)) return false;
           }
         }
       } else {
-        // Direct equality — unwrap both sides
+        // Direct equality
         if (unwrap(docVal) !== unwrap(value)) return false;
       }
     }
     return true;
   }
 
-  // Apply .sort({field: 1|-1}) to an array (returns new array)
   function applySort(docs, sort) {
     if (!sort) return docs;
     const entries = Object.entries(sort);
@@ -1030,29 +1049,105 @@ function qsAll(s) { return document.querySelectorAll(s); }
     });
   }
 
+  // ── Projection ────────────────────────────────────────────────────────────
+
+  function setNestedPath(obj, parts, val) {
+    let cur = obj;
+    for (let i = 0; i < parts.length - 1; i++) {
+      if (cur[parts[i]] == null || typeof cur[parts[i]] !== 'object') cur[parts[i]] = {};
+      cur = cur[parts[i]];
+    }
+    cur[parts[parts.length - 1]] = val;
+  }
+
+  function deleteNestedPath(obj, parts) {
+    let cur = obj;
+    for (let i = 0; i < parts.length - 1; i++) {
+      if (!cur || cur[parts[i]] == null) return;
+      cur = cur[parts[i]];
+    }
+    if (cur) delete cur[parts[parts.length - 1]];
+  }
+
+  function projectDoc(doc, proj) {
+    if (!proj || !Object.keys(proj).length) return doc;
+    const entries = Object.entries(proj);
+    const isInclusive = entries.some(([k, v]) => v === 1 && k !== '_id');
+
+    if (isInclusive) {
+      const result = {};
+      if (proj._id !== 0 && doc._id !== undefined) result._id = doc._id;
+      for (const [field, val] of entries) {
+        if (val === 1 && field !== '_id') {
+          const v = getPath(doc, field);
+          if (v !== undefined) setNestedPath(result, field.split('.'), v);
+        }
+      }
+      return result;
+    } else {
+      const result = JSON.parse(JSON.stringify(doc));
+      for (const [field, val] of entries) {
+        if (val === 0) deleteNestedPath(result, field.split('.'));
+      }
+      return result;
+    }
+  }
+
+  function applyProjection(docs, proj) {
+    if (!proj || !Object.keys(proj).length) return docs;
+    return docs.map(d => projectDoc(d, proj));
+  }
+
   // ── Query parser ──────────────────────────────────────────────────────────
 
-  // Extract content between first matching parens, return { inner, after }
   function extractParens(str, startFrom = 0) {
     const open = str.indexOf('(', startFrom);
     if (open === -1) return null;
     let depth = 0;
     for (let i = open; i < str.length; i++) {
-      if (str[i] === '(') depth++;
+      if      (str[i] === '(') depth++;
       else if (str[i] === ')') { depth--; if (depth === 0) return { inner: str.slice(open+1, i).trim(), after: str.slice(i+1).trim() }; }
     }
     return null;
   }
 
-  // Parse a Mongo shell command string into structured form
+  // Split "filter_json, projection_json" respecting brace depth
+  function parseTwoJsonArgs(str) {
+    if (!str.trim()) return { first: {}, second: {} };
+    // Try single arg first
+    try { return { first: JSON.parse(str), second: {} }; } catch {}
+    // Find end of first balanced JSON value
+    let depth = 0, firstEnd = -1;
+    for (let i = 0; i < str.length; i++) {
+      if ('{['.includes(str[i])) depth++;
+      else if ('}]'.includes(str[i])) { depth--; if (depth === 0) { firstEnd = i; break; } }
+    }
+    if (firstEnd === -1) return { error: `Could not parse arguments` };
+    const firstStr = str.slice(0, firstEnd + 1);
+    const rest     = str.slice(firstEnd + 1).trim().replace(/^,\s*/, '');
+    try {
+      const first  = JSON.parse(firstStr);
+      const second = rest ? (() => { try { return JSON.parse(rest); } catch { return {}; } })() : {};
+      return { first, second };
+    } catch(e) {
+      return { error: `Filter parse error: ${e.message}` };
+    }
+  }
+
   function parseCommand(raw) {
     const q = raw.trim();
 
-    if (/^show collections$/i.test(q)) return { cmd: 'show_collections' };
+    // ── Simple commands ───────────────────────────────────────────────────────
+    if (/^show dbs?$/i.test(q))          return { cmd: 'show_dbs' };
+    if (/^show collections$/i.test(q))   return { cmd: 'getcollectionnames' }; // legacy alias
+    const useM = q.match(/^use\s+(\S+)$/i);
+    if (useM) return { cmd: 'use', dbName: useM[1] };
 
-    // db.COLLECTION.METHOD(...)
-    const baseRe = /^db\.(\w+)\.(\w+)\s*\(/i;
-    const baseM  = q.match(baseRe);
+    // ── db.METHOD() — no collection ───────────────────────────────────────────
+    if (/^db\.getCollectionNames\s*\(\s*\)$/i.test(q)) return { cmd: 'getcollectionnames' };
+
+    // ── db.COLLECTION.METHOD(...) ─────────────────────────────────────────────
+    const baseM = q.match(/^db\.(\w+)\.(\w+)\s*\(/i);
     if (!baseM) return { cmd: 'unknown', raw: q };
 
     const colName = baseM[1];
@@ -1062,47 +1157,42 @@ function qsAll(s) { return document.querySelectorAll(s); }
 
     const { inner, after } = parsed;
 
-    // Parse filter / arg
-    let filter = {}, fieldArg = null, parseErr = null;
+    let filter = {}, projection = {}, fieldArg = null, parseErr = null;
+
     if (inner) {
       if (method === 'distinct') {
-        const fm = inner.match(/^["'](\w[\w.]*?)["'](?:\s*,.*)?$/);
+        const fm = inner.match(/^["'](\w[\w.]*?)["']/);
         fieldArg = fm ? fm[1] : null;
-        if (!fieldArg) parseErr = `distinct expects a field name string, e.g. distinct("status")`;
+        if (!fieldArg) parseErr = `distinct requires a quoted field name, e.g. distinct("status")`;
       } else {
-        try { filter = JSON.parse(inner); }
-        catch(e) { parseErr = `Filter parse error: ${e.message}`; }
+        const two = parseTwoJsonArgs(inner);
+        if (two.error) parseErr = two.error;
+        else { filter = two.first || {}; projection = two.second || {}; }
       }
     }
     if (parseErr) return { cmd: 'error', msg: parseErr };
 
-    // Chain: .sort({...}) and .limit(N) in any order
+    // Chain: .sort() and .limit() in any order
     let sort = null, limit = null, rest = after;
     for (let pass = 0; pass < 4; pass++) {
-      const sortM  = rest.match(/^\.sort\s*\(/i);
-      const limitM = rest.match(/^\.limit\s*\(/i);
-      if (sortM) {
+      if (/^\.sort\s*\(/i.test(rest)) {
         const sp = extractParens(rest, rest.indexOf('('));
-        if (sp) { try { sort = JSON.parse(sp.inner); } catch(e) {} rest = sp.after; continue; }
+        if (sp) { try { sort = JSON.parse(sp.inner); } catch {} rest = sp.after; continue; }
       }
-      if (limitM) {
+      if (/^\.limit\s*\(/i.test(rest)) {
         const lp = extractParens(rest, rest.indexOf('('));
         if (lp) { limit = parseInt(lp.inner); rest = lp.after; continue; }
       }
       break;
     }
 
-    return { cmd: method, colName, filter, fieldArg, sort, limit };
+    return { cmd: method, colName, filter, projection, fieldArg, sort, limit };
   }
 
   // ── Exec ──────────────────────────────────────────────────────────────────
 
-  function getCol(name) {
-    return mongoCollections.find(c => c.collection === name) || null;
-  }
-
   function colError(name) {
-    appendLine(`MongoNamespaceError: collection '${name}' not found. Run 'show collections'.`, 'error');
+    appendLine(`MongoNamespaceError: collection '${name}' not found in database '${currentDb}'. Run db.getCollectionNames() to list available collections.`, 'error');
   }
 
   function runMongoQuery() {
@@ -1113,31 +1203,48 @@ function qsAll(s) { return document.querySelectorAll(s); }
 
     const p = parseCommand(raw);
 
-    // ── show collections ──────────────────────────────────────────────────────
-    if (p.cmd === 'show_collections') {
-      if (!mongoCollections.length) appendLine('(no collections)', 'system');
-      else mongoCollections.forEach(c => appendLine(c.collection, 'result'));
+    // ── show dbs ──────────────────────────────────────────────────────────────
+    if (p.cmd === 'show_dbs') {
+      if (!allDbs.length) { appendLine('(no databases defined)', 'system'); return; }
+      allDbs.forEach(db => appendLine(db + (db === currentDb ? '\t(current)' : ''), 'result'));
+      return;
+    }
+
+    // ── use <db> ──────────────────────────────────────────────────────────────
+    if (p.cmd === 'use') {
+      currentDb = p.dbName;
+      updateDbTitle();
+      const cols = currentCols();
+      appendLine(`switched to db ${p.dbName}${cols.length ? '' : ' (no collections defined for this database)'}`, 'system');
+      return;
+    }
+
+    // ── db.getCollectionNames() ───────────────────────────────────────────────
+    if (p.cmd === 'getcollectionnames') {
+      const cols = currentCols();
+      appendLine(JSON.stringify(cols.map(c => c.collection)), 'result');
       return;
     }
 
     // ── errors ────────────────────────────────────────────────────────────────
     if (p.cmd === 'error')   { appendLine(p.msg, 'error'); return; }
     if (p.cmd === 'unknown') {
-      appendLine(`Unrecognized command. Try: show collections | db.<col>.find({}) | db.<col>.findOne({}) | db.<col>.countDocuments({}) | db.<col>.distinct("field")`, 'error');
+      appendLine(`Unrecognized command. See query reference ↗ for all supported commands.`, 'error');
       return;
     }
 
-    const col = getCol(p.colName);
+    const col  = getCol(p.colName);
     if (!col) { colError(p.colName); return; }
     const docs = col.synthetic_docs || [];
 
     // ── find ──────────────────────────────────────────────────────────────────
     if (p.cmd === 'find') {
       let results = docs.filter(d => matchesFilter(d, p.filter));
-      if (p.sort)  results = applySort(results, p.sort);
-      if (p.limit) results = results.slice(0, p.limit);
-      const filterDesc = Object.keys(p.filter).length ? ` matching filter` : '';
-      appendLine(`// ${results.length} document${results.length!==1?'s':''}${filterDesc}`, 'count');
+      if (p.sort)       results = applySort(results, p.sort);
+      if (p.limit)      results = results.slice(0, p.limit);
+      results = applyProjection(results, p.projection);
+      const hasFilter = Object.keys(p.filter).length;
+      appendLine(`// ${results.length} document${results.length!==1?'s':''}${hasFilter ? ' matching filter' : ''}`, 'count');
       if (results.length) {
         appendLine(JSON.stringify(results, null, 2), 'result');
         lastResult = { filename: `${col.collection}.json`, data: results };
@@ -1152,7 +1259,7 @@ function qsAll(s) { return document.querySelectorAll(s); }
     if (p.cmd === 'findone') {
       let results = docs.filter(d => matchesFilter(d, p.filter));
       if (p.sort) results = applySort(results, p.sort);
-      const doc = results[0] || null;
+      const doc = results[0] ? projectDoc(results[0], p.projection) : null;
       if (!doc) { appendLine('null', 'result'); return; }
       appendLine(JSON.stringify(doc, null, 2), 'result');
       lastResult = { filename: `${col.collection}-findOne.json`, data: doc };
@@ -1162,25 +1269,24 @@ function qsAll(s) { return document.querySelectorAll(s); }
 
     // ── countDocuments ────────────────────────────────────────────────────────
     if (p.cmd === 'countdocuments') {
-      const count = docs.filter(d => matchesFilter(d, p.filter)).length;
-      appendLine(String(count), 'result');
+      appendLine(String(docs.filter(d => matchesFilter(d, p.filter)).length), 'result');
       return;
     }
 
     // ── distinct ──────────────────────────────────────────────────────────────
     if (p.cmd === 'distinct') {
-      if (!p.fieldArg) { appendLine(`distinct requires a field name string, e.g. db.${col.collection}.distinct("status")`, 'error'); return; }
+      if (!p.fieldArg) { appendLine(`distinct requires a quoted field name, e.g. db.${col.collection}.distinct("status")`, 'error'); return; }
       const values = [...new Set(docs.map(d => getPath(d, p.fieldArg)).filter(v => v !== undefined))];
       appendLine(JSON.stringify(values, null, 2), 'result');
       return;
     }
 
-    appendLine(`Method '${p.cmd}' is not supported. Supported: find, findOne, countDocuments, distinct`, 'error');
+    appendLine(`Method '${p.cmd}' not supported. See query reference ↗ for all supported methods.`, 'error');
   }
 
   document.getElementById('btn-run-query').addEventListener('click', runMongoQuery);
   document.getElementById('btn-clear-terminal').addEventListener('click', () => {
-    outputEl.innerHTML = '<div class="mongo-line mongo-line-system">Terminal cleared.</div>';
+    outputEl.innerHTML = `<div class="mongo-line mongo-line-system">Terminal cleared. Current database: <strong>${currentDb}</strong></div>`;
   });
   queryEl.addEventListener('keydown', e => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); runMongoQuery(); }
