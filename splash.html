@@ -15,6 +15,11 @@
           document.documentElement.style.setProperty('--splash-prompt', '#2d0f60');
           document.documentElement.style.setProperty('--splash-pixel', '#e040fb');
         }
+        var fi=document.createElement("link");fi.rel="icon";fi.type="image/svg+xml";
+        var t2=localStorage.getItem("lastTheme");
+        var d2=(window.location.hostname.includes("vhs")||window.location.hostname.endsWith("bekind.support"))?"vhs":"sturnus";
+        fi.href=(t2||d2)==="vhs"?"favicon-vhs.svg":"favicon-sturnus.svg";
+        document.head.appendChild(fi);
       } catch(e) {}
     })();
   </script>
