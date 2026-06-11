@@ -351,6 +351,27 @@ function escHtml(str) {
 
     renderChallenges();
 
+    // ── Onboarding modal (first-time users with 0 solved) ─────────────────────
+    const onboardingKey = 'sturnus_onboarded_' + ctx.user.id;
+    if (!doneIds.size && !localStorage.getItem(onboardingKey)) {
+      const modal = document.getElementById('onboarding-modal');
+      modal.style.display = 'flex';
+
+      function dismissOnboarding() {
+        modal.style.display = 'none';
+        localStorage.setItem(onboardingKey, '1');
+      }
+
+      document.getElementById('close-onboarding').addEventListener('click', dismissOnboarding);
+      modal.addEventListener('click', e => { if (e.target === modal) dismissOnboarding(); });
+
+      document.getElementById('btn-start-first').addEventListener('click', () => {
+        dismissOnboarding();
+        const first = [...challenges].sort((a, b) => a.id.localeCompare(b.id))[0];
+        if (first) window.location.href = `challenge.html?id=${encodeURIComponent(first.id)}`;
+      });
+    }
+
     // Sort buttons
     document.querySelectorAll('.sort-btn').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -394,5 +415,56 @@ function escHtml(str) {
   }
 })();
 </script>
+
+<!-- ── Onboarding Modal ───────────────────────────────────────────────────── -->
+<div class="modal-backdrop" id="onboarding-modal" role="dialog" aria-modal="true" aria-labelledby="onboarding-title" style="display:none;">
+  <div class="modal" style="max-width:480px;">
+    <div class="modal-header">
+      <h3 id="onboarding-title">Welcome to STURNUS</h3>
+      <button class="modal-close" id="close-onboarding" aria-label="Close welcome">×</button>
+    </div>
+    <div class="modal-body" style="padding:20px 24px;">
+      <p style="color:var(--text-secondary);font-size:13px;margin-bottom:20px;">Each case is a real-world customer support incident. Your job is to diagnose it.</p>
+      <div style="display:flex;flex-direction:column;gap:16px;">
+        <div class="ob-step">
+          <div class="ob-num">1</div>
+          <div>
+            <strong>Read the ticket &amp; evidence</strong>
+            <p>Customer complaint, server logs, database records, and screenshots are all part of the case.</p>
+          </div>
+        </div>
+        <div class="ob-step">
+          <div class="ob-num">2</div>
+          <div>
+            <strong>Query the database</strong>
+            <p>Use the MongoDB terminal to explore the data. Tab-autocomplete works, and <kbd style="font-family:var(--font-mono);font-size:11px;padding:1px 5px;background:var(--bg-surface);border:1px solid var(--border);border-radius:3px;">?</kbd> shows keyboard shortcuts.</p>
+          </div>
+        </div>
+        <div class="ob-step">
+          <div class="ob-num">3</div>
+          <div>
+            <strong>Diagnose and score</strong>
+            <p>Answer the analysis questions to earn points. Hints are available but cost points — use them wisely.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer" style="justify-content:flex-end;">
+      <button class="btn btn-primary" id="btn-start-first">Start your first case →</button>
+    </div>
+  </div>
+</div>
+
+<style>
+  .ob-step { display:flex; gap:14px; align-items:flex-start; }
+  .ob-num {
+    width:24px; height:24px; border-radius:50%;
+    background:var(--accent-subtle); border:1px solid var(--accent);
+    color:var(--text-link); font-family:var(--font-mono); font-size:12px; font-weight:700;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0; margin-top:2px;
+  }
+  .ob-step strong { font-size:13px; display:block; margin-bottom:3px; }
+  .ob-step p { font-size:12px; color:var(--text-secondary); margin:0; }
+</style>
 </body>
 </html>

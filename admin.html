@@ -357,6 +357,11 @@
       </div>
       <div class="table-wrap">
         <div id="analytics-loading" class="loading-state"><div class="spinner"></div></div>
+        <div id="analytics-legend" style="padding:10px 16px 0;font-size:11px;color:var(--text-muted);display:flex;gap:12px;flex-wrap:wrap;display:none;">
+          <span><span style="color:var(--text-danger,#e06c75);">▮</span> Solve rate &gt;90% or &lt;20%</span>
+          <span><span style="color:var(--text-warning,#e5c07b);">▮</span> Hint-heavy (&gt;50% of avg score on hints)</span>
+          <span style="color:var(--text-muted);font-style:italic;">Flags require ≥3 attempts</span>
+        </div>
         <table id="analytics-table" class="hidden">
           <thead>
             <tr>
@@ -368,6 +373,7 @@
               <th>Avg score</th>
               <th>Avg hints pts</th>
               <th>Avg time</th>
+              <th>Flag</th>
             </tr>
           </thead>
           <tbody id="analytics-tbody"></tbody>
@@ -1133,12 +1139,32 @@ function renumberList(listId, labelPrefix) {
     if (!rows.length) { emptyEl.classList.remove('hidden'); return; }
 
     tbodyEl.innerHTML = '';
+    let anyFlag = false;
     rows.forEach(r => {
       const tr = document.createElement('tr');
       const solveRate = r.solve_rate_pct != null ? r.solve_rate_pct + '%' : '—';
       const avgScore  = r.avg_score      != null ? r.avg_score           : '—';
       const avgHints  = r.avg_hints_cost != null ? r.avg_hints_cost      : '—';
       const avgTime   = r.avg_solve_min  != null ? r.avg_solve_min + 'm' : '—';
+
+      // Auto-calibration flags (only meaningful with ≥3 attempts)
+      let flagHtml = '';
+      if (r.attempt_count >= 3 && r.solve_rate_pct != null) {
+        if (r.solve_rate_pct > 90) {
+          flagHtml = '<span style="color:var(--text-danger,#e06c75);font-size:11px;">Too easy</span>';
+          tr.style.borderLeft = '3px solid var(--text-danger,#e06c75)';
+          anyFlag = true;
+        } else if (r.solve_rate_pct < 20) {
+          flagHtml = '<span style="color:var(--text-danger,#e06c75);font-size:11px;">Too hard</span>';
+          tr.style.borderLeft = '3px solid var(--text-danger,#e06c75)';
+          anyFlag = true;
+        } else if (r.avg_hints_cost != null && r.avg_score != null && r.avg_score > 0 && r.avg_hints_cost > r.avg_score * 0.5) {
+          flagHtml = '<span style="color:var(--text-warning,#e5c07b);font-size:11px;">Hint-heavy</span>';
+          tr.style.borderLeft = '3px solid var(--text-warning,#e5c07b)';
+          anyFlag = true;
+        }
+      }
+
       tr.innerHTML = `
         <td class="td-mono">${escHtml(r.id)}</td>
         <td>${escHtml(r.title)}</td>
@@ -1148,10 +1174,12 @@ function renumberList(listId, labelPrefix) {
         <td>${avgScore}</td>
         <td>${avgHints}</td>
         <td>${avgTime}</td>
+        <td>${flagHtml}</td>
       `;
       tbodyEl.appendChild(tr);
     });
 
+    if (anyFlag) document.getElementById('analytics-legend').style.display = 'flex';
     tableEl.classList.remove('hidden');
   }
 
