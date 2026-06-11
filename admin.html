@@ -201,8 +201,8 @@
         <!-- ── Basic info ─────────────────────────────────────── -->
         <div class="form-row">
           <div class="form-group">
-            <label for="f-id">Challenge ID <span class="label-hint">e.g. TICKET-0004</span></label>
-            <input type="text" id="f-id" placeholder="TICKET-0004" class="mono-input">
+            <label for="f-id">Challenge ID <span class="label-hint">auto-filled, editable</span></label>
+            <input type="text" id="f-id" placeholder="TICKET-0001" class="mono-input">
           </div>
           <div class="form-group">
             <label for="f-title">Title</label>
@@ -816,10 +816,18 @@ function renumberList(listId, labelPrefix) {
     document.getElementById('challenge-form-panel').scrollIntoView({ behavior: 'smooth' });
   }
 
+  function nextTicketId() {
+    const nums = _challengeCache
+      .map(ch => { const m = ch.id.match(/^TICKET-(\d+)$/i); return m ? parseInt(m[1], 10) : null; })
+      .filter(n => n !== null);
+    const max = nums.length ? Math.max(...nums) : 0;
+    return 'TICKET-' + String(max + 1).padStart(4, '0');
+  }
+
   function resetForm() {
     document.getElementById('form-panel-title').textContent = 'Add New Challenge';
     document.getElementById('f-edit-id').value  = '';
-    document.getElementById('f-id').value       = '';
+    document.getElementById('f-id').value       = nextTicketId();
     document.getElementById('f-id').disabled    = false;
     ['f-title','f-scenario','f-ticket','f-arch','f-red-herrings','f-mongo-collections'].forEach(id => {
       document.getElementById(id).value = '';
