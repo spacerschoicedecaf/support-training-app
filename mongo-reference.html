@@ -21,6 +21,7 @@
     .note-box strong { color: var(--text-primary); }
     .badge-real  { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 20px; background: var(--bg-success, rgba(143,188,90,0.15)); color: var(--text-success); font-family: var(--font-mono); }
     .badge-limit { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 20px; background: var(--warning-bg); color: var(--text-warning); font-family: var(--font-mono); }
+    .badge-legend { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 10px; font-size: 12px; color: var(--text-secondary); }
     .two-col-ref { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
     @media (max-width: 700px) { .two-col-ref { grid-template-columns: 1fr; } }
   </style>
@@ -43,6 +44,10 @@
 
   <div class="note-box">
     <strong>This is a simulated shell.</strong> It runs against synthetic in-memory documents — no real database, no writes, no network. Behavior matches MongoDB Atlas Shell for the supported subset below. Commands not listed here are not implemented.
+    <div class="badge-legend">
+      <span><span class="badge-real">mongo-compatible</span> — works exactly like the real MongoDB shell</span>
+      <span><span class="badge-limit">limited</span> — supported but with caveats vs real MongoDB</span>
+    </div>
   </div>
 
   <!-- ── Database commands ──────────────────────────────────────────────── -->
@@ -53,21 +58,21 @@
       <tbody>
         <tr>
           <td><code>show dbs</code></td>
-          <td>List all available databases in this challenge. <span class="badge-real">real</span></td>
+          <td>List all available databases in this challenge. <span class="badge-real">mongo-compatible</span></td>
         </tr>
         <tr>
           <td><code>use &lt;database&gt;</code></td>
-          <td>Switch to a different database. Subsequent queries run against collections in that database. <span class="badge-real">real</span>
+          <td>Switch to a different database. Subsequent queries run against collections in that database. <span class="badge-real">mongo-compatible</span>
             <span class="ex">use accounts</span>
           </td>
         </tr>
         <tr>
           <td><code>db.getCollectionNames()</code></td>
-          <td>List all collections in the current database. <span class="badge-real">real</span></td>
+          <td>List all collections in the current database. <span class="badge-real">mongo-compatible</span></td>
         </tr>
         <tr>
           <td><code>cls</code> / <code>clear</code></td>
-          <td>Clear the terminal output. <span class="badge-real">real</span></td>
+          <td>Clear the terminal output. <span class="badge-real">mongo-compatible</span></td>
         </tr>
       </tbody>
     </table>
@@ -78,11 +83,11 @@
       <tbody>
         <tr>
           <td><code>↑ / ↓</code></td>
-          <td>Scroll through previous commands (command history). <span class="badge-real">real</span></td>
+          <td>Scroll through previous commands (command history). <span class="badge-real">mongo-compatible</span></td>
         </tr>
         <tr>
           <td><code>Ctrl+Enter</code></td>
-          <td>Run the current query (alternative to the Run button). <span class="badge-real">real</span></td>
+          <td>Run the current query (alternative to the Run button). <span class="badge-real">mongo-compatible</span></td>
         </tr>
       </tbody>
     </table>
@@ -132,13 +137,13 @@
       <tbody>
         <tr>
           <td><code>.sort({field: 1})</code></td>
-          <td><code>1</code> = ascending, <code>-1</code> = descending. Multiple fields supported. <span class="badge-real">real</span>
+          <td><code>1</code> = ascending, <code>-1</code> = descending. Multiple fields supported. <span class="badge-real">mongo-compatible</span>
             <span class="ex">db.logs.find({}).sort({"ts": -1})</span>
           </td>
         </tr>
         <tr>
           <td><code>.limit(N)</code></td>
-          <td>Return at most <code>N</code> documents. <span class="badge-real">real</span>
+          <td>Return at most <code>N</code> documents. <span class="badge-real">mongo-compatible</span>
             <span class="ex">db.logs.find({}).sort({"ts": -1}).limit(10)</span>
           </td>
         </tr>
@@ -189,7 +194,7 @@
             </tr>
             <tr>
               <td><code>$not</code></td>
-              <td>Negates a field-level operator expression <span class="badge-limit">field-level</span>
+              <td>Negates a field-level operator expression <span class="badge-limit">limited</span>
                 <span class="ex">{"status": {"$not": {"$eq": "active"}}}</span>
               </td>
             </tr>
