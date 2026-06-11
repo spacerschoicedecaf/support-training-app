@@ -50,11 +50,17 @@
       </div>
 
       <!-- Sort + counts -->
-      <div id="challenge-controls" class="hidden" style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+      <div id="challenge-controls" class="hidden" style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
         <span class="text-muted text-sm">Sort:</span>
         <button class="btn btn-ghost btn-sm sort-btn active" data-sort="id">By ID</button>
         <button class="btn btn-ghost btn-sm sort-btn" data-sort="points">By Points</button>
         <span class="text-muted text-sm" style="margin-left:auto;" id="ch-summary"></span>
+      </div>
+
+      <!-- Tag filter pills -->
+      <div id="tag-filter-bar" class="hidden" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;align-items:center;">
+        <span class="text-muted text-sm" style="flex-shrink:0;">Filter:</span>
+        <div id="tag-pills" style="display:flex;flex-wrap:wrap;gap:5px;"></div>
       </div>
 
       <!-- Unsolved -->
@@ -95,23 +101,26 @@
 <script src="js/themes.js"></script>
 <script src="js/auth.js"></script>
 <script>
+function escHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
 (async () => {
   const ctx = await Auth.requireAuth();
   if (!ctx) return;
 
   Auth.populateNav(ctx.profile);
 
-  // ── Challenges ──────────────────────────────────────────────────────────────
-
+  // ── Load challenges + submissions in parallel ───────────────────────────────
   const [challengesRes, submissionsRes] = await Promise.all([
     _supabase
       .from('challenges')
-      .select('id, title, questions, variant_group, active')
+      .select('id, title, questions, variant_group, active, tags')
       .eq('active', true)
       .order('created_at', { ascending: true }),
     _supabase
       .from('submissions')
-      .select('challenge_id, score_earned, hints_cost, first_blood, completed_at')
+      .select('challenge_id, score_earned, hints_cost, first_blood, completed_at, difficulty_rating')
       .eq('user_id', ctx.user.id)
   ]);
 
@@ -119,7 +128,7 @@
   const submissions   = submissionsRes.data || [];
   const REVIEW_DAYS   = 90;
 
-  // Build submission lookup: challenge_id → most recent submission
+  // Submission lookup: challenge_id → most recent submission
   const subById = {};
   submissions.forEach(s => {
     if (!subById[s.challenge_id] || new Date(s.completed_at) > new Date(subById[s.challenge_id].completed_at)) {
@@ -127,7 +136,7 @@
     }
   });
 
-  // Variant rotation: for grouped challenges, pick one to show per group
+  // ── Variant rotation ────────────────────────────────────────────────────────
   const challenges = [];
   const groups = {};
   allChallenges.forEach(ch => {
@@ -142,32 +151,16 @@
   Object.values(groups).forEach(variants => {
     const done   = variants.filter(ch =>  subById[ch.id]);
     const unseen = variants.filter(ch => !subById[ch.id]);
-
-    // Always show completed challenges — they belong in the Solved section
     challenges.push(...done);
-
-    // Nothing unseen left to rotate
     if (unseen.length === 0) return;
-
     const groupSubs = done.map(ch => subById[ch.id])
       .sort((a, b) => new Date(b.completed_at) - new Date(a.completed_at));
-
-    if (groupSubs.length === 0) {
-      // Never done any in group — show the first unseen variant
-      challenges.push(unseen[0]);
-      return;
-    }
-
-    const lastSub = groupSubs[0];
-    const daysSince = (Date.now() - new Date(lastSub.completed_at)) / 86400000;
-
-    if (daysSince < REVIEW_DAYS) return; // cooldown active — no new unsolved yet
-
-    // Cooldown expired — surface next unseen variant as review
+    if (groupSubs.length === 0) { challenges.push(unseen[0]); return; }
+    const daysSince = (Date.now() - new Date(groupSubs[0].completed_at)) / 86400000;
+    if (daysSince < REVIEW_DAYS) return;
     challenges.push({ ...unseen[0], _isReview: true });
   });
 
-  // Sort in original order (by id)
   challenges.sort((a, b) => a.id.localeCompare(b.id));
 
   const doneIds = new Set(submissions.map(s => s.challenge_id));
@@ -180,27 +173,91 @@
     document.getElementById('challenge-controls').classList.remove('hidden');
     document.getElementById('challenge-controls').style.display = 'flex';
 
+    // ── Tag filter ────────────────────────────────────────────────────────────
+    const allTags = [...new Set(allChallenges.flatMap(ch => ch.tags || []))].sort();
+    let activeTag = null;
+
+    if (allTags.length) {
+      const bar  = document.getElementById('tag-filter-bar');
+      const pills = document.getElementById('tag-pills');
+      bar.classList.remove('hidden');
+      bar.style.display = 'flex';
+
+      function renderTagPills() {
+        pills.innerHTML = '';
+        allTags.forEach(tag => {
+          const btn = document.createElement('button');
+          btn.className = 'btn btn-ghost btn-sm tag-filter-pill';
+          btn.style.cssText = `
+            font-family: var(--font-mono); font-size: 10px; padding: 2px 8px; border-radius: 20px;
+            border: 1px solid ${activeTag === tag ? 'var(--text-link)' : 'var(--border)'};
+            color: ${activeTag === tag ? 'var(--text-link)' : 'var(--text-muted)'};
+            background: ${activeTag === tag ? 'var(--accent-subtle)' : 'none'};
+          `;
+          btn.textContent = tag;
+          btn.addEventListener('click', () => {
+            activeTag = activeTag === tag ? null : tag;
+            renderTagPills();
+            renderChallenges();
+          });
+          pills.appendChild(btn);
+        });
+      }
+      renderTagPills();
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
     let sortMode = 'id';
 
     function totalPts(ch) {
       return (ch.questions || []).reduce((s, q) => s + (q.points || 0), 0);
     }
 
+    const STAR_LABELS = ['','Very easy','Easy','About right','Hard','Very hard'];
+
+    function starsHtml(rating) {
+      if (!rating) return '';
+      const filled = '★'.repeat(rating);
+      const empty  = '☆'.repeat(5 - rating);
+      return `<span title="${STAR_LABELS[rating]}" style="color:var(--text-warning);font-size:11px;letter-spacing:1px;">${filled}${empty}</span>`;
+    }
+
+    function tagsHtml(tags) {
+      if (!tags || !tags.length) return '';
+      return tags.map(t =>
+        `<button class="inline-tag-pill" data-tag="${escHtml(t)}" style="
+          font-family:var(--font-mono);font-size:10px;padding:1px 6px;border-radius:20px;
+          border:1px solid var(--border);color:var(--text-muted);background:none;cursor:pointer;
+          ${activeTag === t ? 'border-color:var(--text-link);color:var(--text-link);' : ''}
+        ">${escHtml(t)}</button>`
+      ).join('');
+    }
+
     function makeCard(ch) {
       const done = doneIds.has(ch.id);
       const pts  = totalPts(ch);
+      const sub  = subById[ch.id] || {};
       const card = document.createElement('a');
       card.href      = `challenge.html?id=${encodeURIComponent(ch.id)}`;
       card.className = `challenge-card${done ? ' completed' : ''}`;
+
+      const tagsRow = (ch.tags && ch.tags.length)
+        ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;">${tagsHtml(ch.tags)}</div>`
+        : '';
+
+      const diffRow = (done && sub.difficulty_rating)
+        ? `<div style="margin-top:4px;">${starsHtml(sub.difficulty_rating)}</div>`
+        : '';
+
       card.innerHTML = `
         <span class="challenge-card-id">${escHtml(ch.id)}</span>
         <div class="challenge-card-info">
           <div class="challenge-card-title">${escHtml(ch.title)}</div>
           <div class="challenge-card-meta">${pts} pts · ${(ch.questions||[]).length} question${(ch.questions||[]).length!==1?'s':''}</div>
+          ${tagsRow}${diffRow}
         </div>
         <div class="challenge-card-right">
           ${done ? (() => {
-            const sub = subById[ch.id] || {};
             const badges = ['<span class="badge badge-success">✓ Solved</span>'];
             if (sub.first_blood) badges.push('<span class="badge badge-warning" title="First to solve this case"><i class="ti ti-antenna" style="font-size:10px;" aria-hidden="true"></i> Initial Response</span>');
             if (sub.hints_cost === 0) badges.push('<span class="badge badge-blue" title="No hints used">Hint-free</span>');
@@ -212,36 +269,58 @@
           <span class="pts-badge">${pts} pts</span>
         </div>
       `;
+
+      // Inline tag pills should filter, not navigate
+      card.querySelectorAll('.inline-tag-pill').forEach(pill => {
+        pill.addEventListener('click', e => {
+          e.preventDefault();
+          e.stopPropagation();
+          activeTag = activeTag === pill.dataset.tag ? null : pill.dataset.tag;
+          if (typeof renderTagPills === 'function') renderTagPills();
+          renderChallenges();
+        });
+      });
+
       return card;
     }
 
+    // ── Render ────────────────────────────────────────────────────────────────
     function renderChallenges() {
-      const sorted = [...challenges].sort((a, b) => {
+      let visible = [...challenges];
+
+      // Tag filter
+      if (activeTag) {
+        visible = visible.filter(ch => (ch.tags || []).includes(activeTag));
+      }
+
+      // Sort
+      visible.sort((a, b) => {
         if (sortMode === 'points') return totalPts(b) - totalPts(a);
         return a.id.localeCompare(b.id);
       });
 
-      const unsolved = sorted.filter(ch => !doneIds.has(ch.id));
-      const solved   = sorted.filter(ch =>  doneIds.has(ch.id));
+      const unsolved = visible.filter(ch => !doneIds.has(ch.id));
+      const solved   = visible.filter(ch =>  doneIds.has(ch.id));
 
-      // Summary
-      document.getElementById('ch-summary').textContent =
-        `${solved.length}/${challenges.length} solved`;
+      // Summary — show filter context
+      const summaryEl = document.getElementById('ch-summary');
+      const totalSolved = challenges.filter(ch => doneIds.has(ch.id)).length;
+      summaryEl.textContent = activeTag
+        ? `${visible.length} matching "${activeTag}" · ${totalSolved}/${challenges.length} solved`
+        : `${totalSolved}/${challenges.length} solved`;
 
-      // Unsolved
-      const unsolvedList = document.getElementById('unsolved-list');
-      document.getElementById('unsolved-label').textContent =
-        `Unsolved — ${unsolved.length}`;
+      const unsolvedList  = document.getElementById('unsolved-list');
+      const unsolvedLabel = document.getElementById('unsolved-label');
+      unsolvedLabel.textContent = unsolved.length ? `Unsolved — ${unsolved.length}` : '';
       unsolvedList.innerHTML = '';
       unsolved.forEach(ch => unsolvedList.appendChild(makeCard(ch)));
 
-      // Solved
       const solvedSection = document.getElementById('solved-section');
       const solvedList    = document.getElementById('solved-list');
+      const solvedLabel   = document.getElementById('solved-label');
       if (solved.length) {
         solvedSection.classList.remove('hidden');
-        document.getElementById('solved-label').textContent =
-          `Solved — ${solved.length}`;
+        solvedLabel.textContent = `Solved — ${solved.length}`;
         solvedList.innerHTML = '';
         solved.forEach(ch => solvedList.appendChild(makeCard(ch)));
       } else {
@@ -263,7 +342,6 @@
   }
 
   // ── Leaderboard ─────────────────────────────────────────────────────────────
-
   const { data: lb } = await _supabase
     .from('profiles')
     .select('id, handle, score')
@@ -283,7 +361,6 @@
       const rank = i + 1;
       const isMe = entry.id === ctx.user.id;
       const rankClass = rank === 1 ? 'gold' : rank === 2 ? 'silver' : rank === 3 ? 'bronze' : '';
-
       const row = document.createElement('div');
       row.className = `leaderboard-row${isMe ? ' me' : ''}`;
       row.innerHTML = `
@@ -293,12 +370,6 @@
       `;
       lbEl.appendChild(row);
     });
-  }
-
-  function escHtml(str) {
-    return String(str)
-      .replace(/&/g,'&amp;').replace(/</g,'&lt;')
-      .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 })();
 </script>
