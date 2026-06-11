@@ -50,11 +50,14 @@
       </div>
 
       <!-- Sort + counts -->
-      <div id="challenge-controls" class="hidden" style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+      <div id="challenge-controls" class="hidden" style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
         <span class="text-muted text-sm">Sort:</span>
         <button class="btn btn-ghost btn-sm sort-btn active" data-sort="id">By ID</button>
         <button class="btn btn-ghost btn-sm sort-btn" data-sort="points">By Points</button>
-        <span class="text-muted text-sm" style="margin-left:auto;" id="ch-summary"></span>
+        <input id="ch-search" type="search" placeholder="Search…"
+          style="margin-left:auto;width:180px;padding:3px 8px;font-size:13px;background:var(--bg-inset);border:1px solid var(--border);border-radius:4px;color:var(--text-primary);outline:none;"
+          aria-label="Search challenges">
+        <span class="text-muted text-sm" id="ch-summary"></span>
       </div>
 
       <!-- Tag filter pills -->
@@ -172,6 +175,14 @@ function escHtml(str) {
   } else {
     document.getElementById('challenge-controls').classList.remove('hidden');
     document.getElementById('challenge-controls').style.display = 'flex';
+
+    // ── Search ────────────────────────────────────────────────────────────────
+    let searchText = '';
+    const searchEl = document.getElementById('ch-search');
+    searchEl.addEventListener('input', () => {
+      searchText = searchEl.value.trim().toLowerCase();
+      renderChallenges();
+    });
 
     // ── Tag filter ────────────────────────────────────────────────────────────
     const allTags = [...new Set(allChallenges.flatMap(ch => ch.tags || []))].sort();
@@ -293,6 +304,15 @@ function escHtml(str) {
         visible = visible.filter(ch => (ch.tags || []).includes(activeTag));
       }
 
+      // Text search (title + description)
+      if (searchText) {
+        visible = visible.filter(ch =>
+          (ch.title || '').toLowerCase().includes(searchText) ||
+          (ch.description || '').toLowerCase().includes(searchText) ||
+          (ch.tags || []).some(t => t.toLowerCase().includes(searchText))
+        );
+      }
+
       // Sort
       visible.sort((a, b) => {
         if (sortMode === 'points') return totalPts(b) - totalPts(a);
@@ -305,8 +325,9 @@ function escHtml(str) {
       // Summary — show filter context
       const summaryEl = document.getElementById('ch-summary');
       const totalSolved = challenges.filter(ch => doneIds.has(ch.id)).length;
-      summaryEl.textContent = activeTag
-        ? `${visible.length} matching "${activeTag}" · ${totalSolved}/${challenges.length} solved`
+      const filterActive = activeTag || searchText;
+      summaryEl.textContent = filterActive
+        ? `${visible.length} of ${challenges.length} · ${totalSolved}/${challenges.length} solved`
         : `${totalSolved}/${challenges.length} solved`;
 
       const unsolvedList  = document.getElementById('unsolved-list');

@@ -703,7 +703,11 @@ function renumberList(listId, labelPrefix) {
     renderChallengeTable(challenges);
   }
 
+  // Store the full challenge list for preview lookups
+  let _challengeCache = [];
+
   function renderChallengeTable(challenges) {
+    _challengeCache = challenges;
     const tbody = document.getElementById('ch-tbody');
     tbody.innerHTML = '';
     challenges.forEach(ch => {
@@ -719,6 +723,7 @@ function renumberList(listId, labelPrefix) {
         </td>
         <td>
           <div class="challenge-row-actions">
+            <button class="btn btn-ghost btn-sm btn-preview-ch" data-id="${escHtml(ch.id)}">Preview</button>
             <button class="btn btn-ghost btn-sm btn-edit-ch" data-id="${escHtml(ch.id)}">Edit</button>
             <button class="btn btn-ghost btn-sm btn-duplicate-ch" data-id="${escHtml(ch.id)}">Duplicate</button>
             ${ch.variant_group ? `<button class="btn btn-ghost btn-sm btn-force-variant" data-group="${escHtml(ch.variant_group)}">Force Variant</button>` : ''}
@@ -731,6 +736,15 @@ function renumberList(listId, labelPrefix) {
 
     tbody.querySelectorAll('.toggle-pill').forEach(btn =>
       btn.addEventListener('click', () => toggleActive(btn.dataset.id, btn.dataset.active === 'true')));
+
+    tbody.querySelectorAll('.btn-preview-ch').forEach(btn =>
+      btn.addEventListener('click', async () => {
+        const btn2 = btn; btn2.disabled = true; btn2.textContent = '…';
+        const { data: ch, error } = await _supabase.from('challenges').select('*').eq('id', btn.dataset.id).single();
+        btn2.disabled = false; btn2.textContent = 'Preview';
+        if (error || !ch) { showGlobalAlert('Failed to load preview: ' + (error?.message || 'not found'), 'danger'); return; }
+        window.openChallengePreview(ch);
+      }));
 
     tbody.querySelectorAll('.btn-force-variant').forEach(btn => {
       btn.addEventListener('click', async () => {
@@ -1100,6 +1114,110 @@ function renumberList(listId, labelPrefix) {
     loadReflections();
   });
 
+})();
+</script>
+
+<!-- ── Challenge Preview Modal ───────────────────────────────────────────── -->
+<div class="modal-backdrop" id="preview-modal" style="display:none;align-items:flex-start;padding-top:40px;">
+  <div class="modal" style="max-width:740px;width:100%;max-height:80vh;overflow-y:auto;">
+    <div class="modal-header" style="position:sticky;top:0;background:var(--bg-surface);z-index:1;">
+      <div>
+        <div style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono);" id="preview-id"></div>
+        <h3 id="preview-title" style="margin-top:2px;"></h3>
+      </div>
+      <button class="modal-close" id="close-preview-modal" title="Close">×</button>
+    </div>
+    <div class="modal-body" style="padding:20px;display:flex;flex-direction:column;gap:18px;" id="preview-body"></div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const modal    = document.getElementById('preview-modal');
+  const closeBtn = document.getElementById('close-preview-modal');
+
+  function escH(s) {
+    return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function section(label, html) {
+    return `<div>
+      <div style="font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);margin-bottom:6px;">${label}</div>
+      <div style="font-size:13px;line-height:1.6;">${html}</div>
+    </div>`;
+  }
+
+  window.openChallengePreview = function(ch) {
+    document.getElementById('preview-id').textContent   = ch.id;
+    document.getElementById('preview-title').textContent = ch.title || '(untitled)';
+
+    const parts = [];
+
+    if (ch.scenario) parts.push(section('Scenario', `<p style="white-space:pre-wrap;">${escH(ch.scenario)}</p>`));
+    if (ch.ticket_quote) parts.push(section('Customer Ticket', `<blockquote style="border-left:3px solid var(--border);margin:0;padding:6px 12px;color:var(--text-secondary);font-style:italic;">${escH(ch.ticket_quote)}</blockquote>`));
+    if (ch.arch_context) parts.push(section('Architecture Context', `<p style="white-space:pre-wrap;">${escH(ch.arch_context)}</p>`));
+
+    // Evidence files
+    const logFiles = (ch.log_files && ch.log_files.length) ? ch.log_files : [];
+    const shots    = ch.screenshots || [];
+    if (logFiles.length || shots.length) {
+      const items = [
+        ...logFiles.map(lf => `<div style="padding:6px 10px;background:var(--bg-inset);border-radius:4px;font-family:var(--font-mono);font-size:12px;">📄 ${escH(lf.filename)}</div>`),
+        ...(shots.length ? [`<div style="padding:6px 10px;background:var(--bg-inset);border-radius:4px;font-size:12px;">🖼 ${shots.length} screenshot${shots.length>1?'s':''}</div>`] : [])
+      ];
+      parts.push(section('Evidence Files', `<div style="display:flex;flex-direction:column;gap:4px;">${items.join('')}</div>`));
+    }
+
+    // Hints
+    const hints = ch.hints || [];
+    if (hints.length) {
+      const hHtml = hints.map((h,i) => `<div style="padding:6px 10px;background:var(--bg-inset);border-radius:4px;font-size:13px;">
+        <span style="font-size:11px;color:var(--text-muted);">Hint ${i+1} · ${h.cost===0?'Free':`${h.cost} pts`}</span><br>${escH(h.text)}
+      </div>`).join('');
+      parts.push(section('Hints', `<div style="display:flex;flex-direction:column;gap:4px;">${hHtml}</div>`));
+    }
+
+    // Questions
+    const questions = ch.questions || [];
+    if (questions.length) {
+      const qHtml = questions.map((q,i) => {
+        const opts = (q.options||[]).map((opt,oi) => {
+          const correct = oi === q.correct_option;
+          return `<div style="padding:4px 8px;border-radius:3px;font-size:12px;${correct?'background:var(--success-bg);color:var(--text-success);':''}">
+            ${correct ? '✓' : '○'} ${escH(opt)}
+          </div>`;
+        }).join('');
+        return `<div style="border:1px solid var(--border);border-radius:6px;padding:12px;display:flex;flex-direction:column;gap:8px;">
+          <div style="font-size:11px;color:var(--text-muted);">Q${i+1} · ${q.points||0} pts${q.label?' · '+escH(q.label):''}</div>
+          <div style="font-weight:500;">${escH(q.question)}</div>
+          <div style="display:flex;flex-direction:column;gap:3px;">${opts}</div>
+          ${q.explanation ? `<div style="font-size:12px;color:var(--text-muted);border-top:1px solid var(--border);padding-top:8px;">💡 ${escH(q.explanation)}</div>` : ''}
+        </div>`;
+      }).join('');
+      parts.push(section('Questions', `<div style="display:flex;flex-direction:column;gap:10px;">${qHtml}</div>`));
+    }
+
+    // Mongo collections summary
+    const cols = ch.mongo_collections || [];
+    if (cols.length) {
+      const colList = cols.map(c => `<code style="font-size:11px;">${escH(c.database||'cluster0')}.${escH(c.collection)}</code>`).join(' &nbsp;');
+      parts.push(section('MongoDB Collections', colList));
+    }
+
+    // Tags
+    if ((ch.tags||[]).length) {
+      const tagHtml = ch.tags.map(t => `<span style="padding:2px 7px;border:1px solid var(--border);border-radius:10px;font-size:11px;">${escH(t)}</span>`).join(' ');
+      parts.push(section('Tags', tagHtml));
+    }
+
+    document.getElementById('preview-body').innerHTML = parts.join('');
+    modal.style.display = 'flex';
+  };
+
+  function closeModal() { modal.style.display = 'none'; }
+  closeBtn.addEventListener('click', closeModal);
+  modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && modal.style.display !== 'none') closeModal(); });
 })();
 </script>
 </body>
