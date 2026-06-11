@@ -33,7 +33,6 @@
     <span class="nav-brand-icon-wrap"><svg class="nav-brand-icon" viewBox="0 0 20 14" fill="currentColor" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg"><rect x="5" y="0" width="5" height="1"/><rect x="4" y="1" width="7" height="1"/><rect x="2" y="2" width="5" height="1"/><rect x="8" y="2" width="4" height="1"/><rect x="1" y="3" width="12" height="1"/><rect x="2" y="4" width="14" height="1"/><rect x="3" y="5" width="15" height="1"/><rect x="4" y="6" width="15" height="1"/><rect x="4" y="7" width="15" height="1"/><rect x="4" y="8" width="12" height="1"/><rect x="5" y="9" width="8" height="1"/><rect x="6" y="10" width="5" height="1"/><rect x="7" y="11" width="1" height="1"/><rect x="10" y="11" width="1" height="1"/><rect x="7" y="12" width="1" height="1"/><rect x="10" y="12" width="1" height="1"/><rect x="6" y="13" width="3" height="1"/><rect x="10" y="13" width="2" height="1"/></svg></span>
     <span class="nav-brand-name">STURNUS</span>
   </a>
-  <span style="color:var(--text-muted);font-size:13px;">/ <a href="javascript:history.back()" style="color:var(--text-secondary)">← Back</a></span>
 </nav>
 
 <div class="container" style="max-width:860px;">
@@ -101,26 +100,26 @@
       <tbody>
         <tr>
           <td><code>db.&lt;col&gt;.find(filter, projection)</code></td>
-          <td>Return all documents matching <code>filter</code>. Optionally shape output with <code>projection</code>.
+          <td>Return all documents matching <code>filter</code>. Optionally shape output with <code>projection</code>. <span class="badge-real">mongo-compatible</span>
             <span class="ex">db.calls.find({"orgId": "abc123"})</span>
             <span class="ex">db.calls.find({}, {"orgId": 1, "ts": 1, "_id": 0})</span>
           </td>
         </tr>
         <tr>
           <td><code>db.&lt;col&gt;.findOne(filter, projection)</code></td>
-          <td>Return the first document matching <code>filter</code>, or <code>null</code>.
+          <td>Return the first document matching <code>filter</code>, or <code>null</code>. <span class="badge-real">mongo-compatible</span>
             <span class="ex">db.users.findOne({"email": "alice@co.com"})</span>
           </td>
         </tr>
         <tr>
           <td><code>db.&lt;col&gt;.countDocuments(filter)</code></td>
-          <td>Return the count of documents matching <code>filter</code>.
+          <td>Return the count of documents matching <code>filter</code>. <span class="badge-real">mongo-compatible</span>
             <span class="ex">db.errors.countDocuments({"level": "error"})</span>
           </td>
         </tr>
         <tr>
           <td><code>db.&lt;col&gt;.distinct("field")</code></td>
-          <td>Return an array of distinct values for <code>field</code> across all documents.
+          <td>Return an array of distinct values for <code>field</code> across all documents. <span class="badge-real">mongo-compatible</span>
             <span class="ex">db.calls.distinct("organizationId")</span>
           </td>
         </tr>
@@ -160,14 +159,14 @@
         <table class="ref-table">
           <thead><tr><th>Comparison</th><th></th></tr></thead>
           <tbody>
-            <tr><td><code>$eq</code></td><td>Equal to <span class="ex">{"status": {"$eq": "active"}}</span></td></tr>
-            <tr><td><code>$ne</code></td><td>Not equal to <span class="ex">{"status": {"$ne": "closed"}}</span></td></tr>
-            <tr><td><code>$gt</code></td><td>Greater than <span class="ex">{"retries": {"$gt": 3}}</span></td></tr>
-            <tr><td><code>$gte</code></td><td>Greater than or equal <span class="ex">{"score": {"$gte": 100}}</span></td></tr>
-            <tr><td><code>$lt</code></td><td>Less than <span class="ex">{"latencyMs": {"$lt": 500}}</span></td></tr>
-            <tr><td><code>$lte</code></td><td>Less than or equal</td></tr>
-            <tr><td><code>$in</code></td><td>Matches any value in array <span class="ex">{"level": {"$in": ["warn","error"]}}</span></td></tr>
-            <tr><td><code>$nin</code></td><td>Matches none of the values in array</td></tr>
+            <tr><td><code>$eq</code></td><td>Equal to <span class="badge-real">mongo-compatible</span> <span class="ex">{"status": {"$eq": "active"}}</span></td></tr>
+            <tr><td><code>$ne</code></td><td>Not equal to <span class="badge-real">mongo-compatible</span> <span class="ex">{"status": {"$ne": "closed"}}</span></td></tr>
+            <tr><td><code>$gt</code></td><td>Greater than <span class="badge-real">mongo-compatible</span> <span class="ex">{"retries": {"$gt": 3}}</span></td></tr>
+            <tr><td><code>$gte</code></td><td>Greater than or equal <span class="badge-real">mongo-compatible</span> <span class="ex">{"score": {"$gte": 100}}</span></td></tr>
+            <tr><td><code>$lt</code></td><td>Less than <span class="badge-real">mongo-compatible</span> <span class="ex">{"latencyMs": {"$lt": 500}}</span></td></tr>
+            <tr><td><code>$lte</code></td><td>Less than or equal <span class="badge-real">mongo-compatible</span></td></tr>
+            <tr><td><code>$in</code></td><td>Matches any value in array <span class="badge-real">mongo-compatible</span> <span class="ex">{"level": {"$in": ["warn","error"]}}</span></td></tr>
+            <tr><td><code>$nin</code></td><td>Matches none of the values in array <span class="badge-real">mongo-compatible</span></td></tr>
           </tbody>
         </table>
       </div>
@@ -178,19 +177,19 @@
           <tbody>
             <tr>
               <td><code>$and</code></td>
-              <td>All conditions must match
+              <td>All conditions must match <span class="badge-real">mongo-compatible</span>
                 <span class="ex">{"$and": [{"level":"error"},{"retries":{"$gt":2}}]}</span>
               </td>
             </tr>
             <tr>
               <td><code>$or</code></td>
-              <td>At least one condition matches
+              <td>At least one condition matches <span class="badge-real">mongo-compatible</span>
                 <span class="ex">{"$or": [{"level":"error"},{"level":"fatal"}]}</span>
               </td>
             </tr>
             <tr>
               <td><code>$nor</code></td>
-              <td>None of the conditions match</td>
+              <td>None of the conditions match <span class="badge-real">mongo-compatible</span></td>
             </tr>
             <tr>
               <td><code>$not</code></td>
@@ -206,13 +205,13 @@
           <tbody>
             <tr>
               <td><code>$exists</code></td>
-              <td>Field exists (<code>true</code>) or is absent (<code>false</code>)
+              <td>Field exists (<code>true</code>) or is absent (<code>false</code>). <span class="badge-real">mongo-compatible</span>
                 <span class="ex">{"deletedAt": {"$exists": false}}</span>
               </td>
             </tr>
             <tr>
               <td><code>$regex</code></td>
-              <td>String matches a regular expression. Use with <code>$options</code> for flags.
+              <td>String matches a regular expression. Use with <code>$options</code> for flags. <span class="badge-real">mongo-compatible</span>
                 <span class="ex">{"email": {"$regex": "@murmuration\\.org$"}}</span>
                 <span class="ex">{"msg": {"$regex": "timeout", "$options": "i"}}</span>
               </td>
@@ -234,21 +233,21 @@
         <tr>
           <td>Inclusion</td>
           <td><code>{"field": 1}</code></td>
-          <td>Return only the specified fields. <code>_id</code> is included by default unless you add <code>"_id": 0</code>.
+          <td>Return only the specified fields. <code>_id</code> is included by default unless you add <code>"_id": 0</code>. <span class="badge-real">mongo-compatible</span>
             <span class="ex">db.users.find({}, {"email": 1, "orgId": 1, "_id": 0})</span>
           </td>
         </tr>
         <tr>
           <td>Exclusion</td>
           <td><code>{"field": 0}</code></td>
-          <td>Return all fields except the specified ones.
+          <td>Return all fields except the specified ones. <span class="badge-real">mongo-compatible</span>
             <span class="ex">db.users.find({}, {"password": 0, "token": 0})</span>
           </td>
         </tr>
         <tr>
           <td>Dot notation</td>
           <td><code>{"address.city": 1}</code></td>
-          <td>Project a nested field.
+          <td>Project a nested field. <span class="badge-real">mongo-compatible</span>
             <span class="ex">db.orgs.find({}, {"billing.plan": 1})</span>
           </td>
         </tr>
@@ -266,12 +265,12 @@
         <tr>
           <td>ObjectId</td>
           <td><code>{"$oid": "..."}</code></td>
-          <td><code>{"_id": {"$oid": "65f3a1b2c4d5e6f7a8b9c0d1"}}</code></td>
+          <td><code>{"_id": {"$oid": "65f3a1b2c4d5e6f7a8b9c0d1"}}</code> <span class="badge-real">mongo-compatible</span></td>
         </tr>
         <tr>
           <td>ISODate</td>
           <td><code>{"$date": "..."}</code></td>
-          <td><code>{"createdAt": {"$gt": {"$date": "2024-01-01T00:00:00Z"}}}</code></td>
+          <td><code>{"createdAt": {"$gt": {"$date": "2024-01-01T00:00:00Z"}}}</code> <span class="badge-real">mongo-compatible</span></td>
         </tr>
       </tbody>
     </table>
@@ -285,13 +284,13 @@
       <tbody>
         <tr>
           <td><code>"address.city"</code></td>
-          <td>Matches <code>doc.address.city</code>
+          <td>Matches <code>doc.address.city</code> <span class="badge-real">mongo-compatible</span>
             <span class="ex">db.users.find({"address.city": "New York"})</span>
           </td>
         </tr>
         <tr>
           <td><code>"billing.plan.tier"</code></td>
-          <td>Matches <code>doc.billing.plan.tier</code></td>
+          <td>Matches <code>doc.billing.plan.tier</code> <span class="badge-real">mongo-compatible</span></td>
         </tr>
       </tbody>
     </table>
