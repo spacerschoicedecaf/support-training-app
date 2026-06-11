@@ -145,19 +145,16 @@
         <div class="red-herring-list" id="ch-red-herrings"></div>
       </div>
 
-      <!-- Server Logs -->
+      <!-- Evidence Files (multi-log + screenshots) -->
       <div class="evidence-section">
         <div class="section-label">Evidence Files</div>
-        <div class="card" style="padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
-          <div style="display:flex;align-items:center;gap:12px;">
-            <span style="font-family:var(--font-mono);font-size:13px;color:var(--text-muted);">[LOG]</span>
-            <div>
-              <div style="font-weight:600;font-size:13px;" id="log-filename">server-logs.json</div>
-              <div class="text-muted text-sm">JSON · structured log output</div>
-            </div>
-          </div>
-          <button class="btn btn-secondary btn-sm" id="btn-view-logs">View logs</button>
-        </div>
+        <div id="log-files-list" style="display:flex;flex-direction:column;gap:8px;"></div>
+      </div>
+
+      <!-- Screenshots -->
+      <div class="evidence-section" id="screenshots-section" style="display:none;">
+        <div class="section-label">Screenshots</div>
+        <div id="screenshots-gallery" style="display:flex;flex-direction:column;gap:12px;"></div>
       </div>
 
       <!-- MongoDB Terminal -->
@@ -260,7 +257,7 @@
   </div>
 </div><!-- /page-content -->
 
-<!-- ── Server Logs Modal ───────────────────────────────────────────────────── -->
+<!-- ── Log Viewer Modal ───────────────────────────────────────────────────── -->
 <div class="modal-backdrop" id="logs-modal">
   <div class="modal">
     <div class="modal-header">
@@ -409,10 +406,52 @@ function qsAll(s) { return document.querySelectorAll(s); }
   qs('#ch-scenario').textContent = ch.scenario;
   qs('#ch-ticket').textContent   = ch.ticket_quote;
   qs('#ch-arch').textContent     = ch.arch_context;
-  qs('#log-filename').textContent   = ch.server_logs_filename;
-  qs('#modal-filename').textContent = ch.server_logs_filename;
 
   document.title = `${ch.id}: ${ch.title} — STURNUS`;
+
+  // ── Resolve log files: use log_files array if available, fall back to legacy fields ──
+  const logFiles = (ch.log_files && ch.log_files.length)
+    ? ch.log_files
+    : [{ filename: ch.server_logs_filename || 'server-logs.json', logs: ch.server_logs || [] }];
+
+  // Render log file cards
+  const logFilesList = qs('#log-files-list');
+  logFiles.forEach((lf, i) => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.style.cssText = 'padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;';
+    card.innerHTML = `
+      <div style="display:flex;align-items:center;gap:12px;">
+        <span style="font-family:var(--font-mono);font-size:13px;color:var(--text-muted);">[LOG]</span>
+        <div>
+          <div style="font-weight:600;font-size:13px;">${escHtml(lf.filename)}</div>
+          <div class="text-muted text-sm">JSON · structured log output${logFiles.length > 1 ? ` · file ${i + 1} of ${logFiles.length}` : ''}</div>
+        </div>
+      </div>
+      <button class="btn btn-secondary btn-sm btn-view-log" data-log-idx="${i}">View logs</button>
+    `;
+    logFilesList.appendChild(card);
+  });
+
+  // Screenshots gallery
+  const screenshots = ch.screenshots || [];
+  if (screenshots.length) {
+    const section  = qs('#screenshots-section');
+    const gallery  = qs('#screenshots-gallery');
+    section.style.display = '';
+    screenshots.forEach(s => {
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'display:flex;flex-direction:column;gap:6px;';
+      wrap.innerHTML = `
+        <img src="${escHtml(s.url)}" alt="${escHtml(s.caption || 'Screenshot')}"
+          style="max-width:100%;border-radius:6px;border:1px solid var(--border);cursor:pointer;"
+          onclick="window.open('${escHtml(s.url)}','_blank')"
+          title="Click to open full size">
+        ${s.caption ? `<div class="text-muted text-sm" style="font-style:italic;">${escHtml(s.caption)}</div>` : ''}
+      `;
+      gallery.appendChild(wrap);
+    });
+  }
 
   // Red herrings
   const rhList = qs('#ch-red-herrings');
@@ -843,21 +882,29 @@ function qsAll(s) { return document.querySelectorAll(s); }
     }
   }
 
-  // ── Server Logs Modal ──────────────────────────────────────────────────────
+  // ── Log Viewer Modal (multi-file) ─────────────────────────────────────────
 
   const logsModal = qs('#logs-modal');
-  let logRaw = '';
+  let activeLogFile = null; // { filename, logs }
 
-  qs('#btn-view-logs').addEventListener('click', () => {
-    if (!logRaw) {
-      logRaw = JSON.stringify(ch.server_logs, null, 2);
-      const codeEl = qs('#log-code');
-      codeEl.textContent = logRaw;
-      hljs.highlightElement(codeEl);
-      const count = Array.isArray(ch.server_logs) ? ch.server_logs.length : 1;
-      qs('#log-entry-count').textContent = `${count} log entr${count === 1 ? 'y' : 'ies'}`;
-    }
+  function openLogFile(idx) {
+    activeLogFile = logFiles[idx];
+    const raw     = JSON.stringify(activeLogFile.logs, null, 2);
+    const codeEl  = qs('#log-code');
+    codeEl.textContent = raw;
+    // Re-highlight each open — remove old hljs class first
+    codeEl.removeAttribute('data-highlighted');
+    hljs.highlightElement(codeEl);
+    const count = Array.isArray(activeLogFile.logs) ? activeLogFile.logs.length : 1;
+    qs('#modal-filename').textContent  = activeLogFile.filename;
+    qs('#log-entry-count').textContent = `${count} log entr${count === 1 ? 'y' : 'ies'}`;
     logsModal.classList.add('open');
+  }
+
+  // Attach listeners to dynamically created log buttons
+  qs('#log-files-list').addEventListener('click', e => {
+    const btn = e.target.closest('.btn-view-log');
+    if (btn) openLogFile(parseInt(btn.dataset.logIdx));
   });
 
   function closeModal() { logsModal.classList.remove('open'); }
@@ -866,11 +913,12 @@ function qsAll(s) { return document.querySelectorAll(s); }
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
   qs('#btn-download-logs').addEventListener('click', () => {
-    const blob = new Blob([logRaw || JSON.stringify(ch.server_logs, null, 2)], { type: 'application/json' });
+    if (!activeLogFile) return;
+    const blob = new Blob([JSON.stringify(activeLogFile.logs, null, 2)], { type: 'application/json' });
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
     a.href     = url;
-    a.download = ch.server_logs_filename;
+    a.download = activeLogFile.filename;
     a.click();
     URL.revokeObjectURL(url);
   });

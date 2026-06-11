@@ -33,6 +33,93 @@
     .toggle-pill.active   { color: var(--text-success); border-color: var(--text-success); }
     .toggle-pill.inactive { color: var(--text-danger);  border-color: var(--text-danger);  }
     .toggle-pill:hover { opacity: 0.75; }
+
+    /* ── Builder UI ────────────────────────────────────────── */
+    .builder-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 8px; }
+    .builder-item {
+      background: var(--bg-inset);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px;
+    }
+    .builder-item-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .builder-item-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+    .btn-remove-item {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--text-danger);
+      font-size: 18px;
+      line-height: 1;
+      padding: 0 2px;
+      opacity: 0.6;
+    }
+    .btn-remove-item:hover { opacity: 1; }
+    .field-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+      font-family: var(--font-mono);
+    }
+    .builder-item .form-group { margin-bottom: 8px; }
+    .builder-item .form-group:last-child { margin-bottom: 0; }
+
+    /* Question builder */
+    .q-options-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+    @media (max-width: 700px) { .q-options-grid { grid-template-columns: 1fr; } }
+    .q-option-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .q-option-row input[type="radio"] { flex-shrink: 0; cursor: pointer; }
+    .q-option-letter {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      width: 14px;
+      flex-shrink: 0;
+    }
+    .q-option-row input[type="text"] { flex: 1; min-width: 0; }
+
+    /* Hint builder */
+    .hint-row {
+      display: grid;
+      grid-template-columns: 76px 1fr auto;
+      gap: 8px;
+      align-items: start;
+    }
+
+    /* Screenshot builder */
+    .screenshot-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: 8px;
+      align-items: start;
+    }
+    @media (max-width: 700px) { .screenshot-row { grid-template-columns: 1fr auto; } }
   </style>
 </head>
 <body>
@@ -60,7 +147,6 @@
     <p>Manage challenges, invite team members, and review scores.</p>
   </div>
 
-  <!-- Alert area -->
   <div id="alert-area"></div>
 
   <!-- Tabs -->
@@ -74,9 +160,7 @@
   <!-- ── Tab: Invite ─────────────────────────────────────────────────────── -->
   <div id="tab-invite" class="tab-panel active">
     <div class="form-panel" style="max-width:520px;">
-      <div class="form-panel-header">
-        <h3>Send invite email</h3>
-      </div>
+      <div class="form-panel-header"><h3>Send invite email</h3></div>
       <div class="form-panel-body">
         <p class="text-muted text-sm mb-16">
           The invitee will receive a magic-link email. On first click they'll be prompted to pick a handle and optional password.
@@ -106,21 +190,19 @@
   <!-- ── Tab: Challenges ─────────────────────────────────────────────────── -->
   <div id="tab-challenges" class="tab-panel">
 
-    <!-- Add / Edit form -->
     <div class="form-panel" id="challenge-form-panel">
       <div class="form-panel-header">
         <h3 id="form-panel-title">Add New Challenge</h3>
-        <div style="display:flex;gap:8px;">
-          <button class="btn btn-ghost btn-sm" id="btn-reset-form">Clear</button>
-        </div>
+        <button class="btn btn-ghost btn-sm" id="btn-reset-form">Clear</button>
       </div>
       <div class="form-panel-body">
         <input type="hidden" id="f-edit-id">
 
+        <!-- ── Basic info ─────────────────────────────────────── -->
         <div class="form-row">
           <div class="form-group">
-            <label for="f-id">Challenge ID <span class="label-hint">e.g. TICKET-0002</span></label>
-            <input type="text" id="f-id" placeholder="TICKET-0002" class="mono-input">
+            <label for="f-id">Challenge ID <span class="label-hint">e.g. TICKET-0004</span></label>
+            <input type="text" id="f-id" placeholder="TICKET-0004" class="mono-input">
           </div>
           <div class="form-group">
             <label for="f-title">Title</label>
@@ -149,73 +231,57 @@
           <div class="json-hint">["string", "string", ...]</div>
         </div>
 
+        <!-- ── Log Files ──────────────────────────────────────── -->
         <div class="form-group">
-          <label for="f-server-logs">Server Logs <span class="label-hint">JSON array of log objects</span></label>
-          <textarea id="f-server-logs" rows="6" class="mono-input" placeholder='[{"ts":"2024-01-15T23:47:18Z","level":"warn","msg":"Pool wait exceeded"}]'></textarea>
-          <div class="json-hint">[{...}, {...}] — each object is one log line</div>
+          <label>Log Files</label>
+          <div class="builder-list" id="log-files-list"></div>
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-add-log">+ Add log file</button>
         </div>
 
-        <div class="form-row">
-          <div class="form-group">
-            <label for="f-log-filename">Log filename <span class="label-hint">shown in UI + download</span></label>
-            <input type="text" id="f-log-filename" placeholder="server-logs.json" class="mono-input">
-          </div>
+        <!-- ── Screenshots ────────────────────────────────────── -->
+        <div class="form-group">
+          <label>Screenshots <span class="label-hint">paste direct image URLs</span></label>
+          <div class="builder-list" id="screenshots-list"></div>
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-add-screenshot">+ Add screenshot</button>
+          <div class="json-hint" style="margin-top:6px;">Use direct links (Imgur, Cloudinary, GitHub raw). Google Drive links won't embed.</div>
         </div>
 
+        <!-- ── MongoDB Collections ───────────────────────────── -->
         <div class="form-group">
-          <label for="f-mongo-collections">MongoDB Collections <span class="label-hint">JSON array — one entry per queryable collection</span></label>
+          <label for="f-mongo-collections">MongoDB Collections <span class="label-hint">JSON array</span></label>
           <textarea id="f-mongo-collections" rows="8" class="mono-input" placeholder='[
   {
     "collection": "calls",
     "required_field": "organizationId",
     "synthetic_docs": [{"_id": {"$oid": "..."}, "organizationId": "abc123"}]
-  },
-  {
-    "collection": "users",
-    "required_field": "organizations.organizationId",
-    "synthetic_docs": [{"_id": {"$oid": "..."}, "organizations": [{"organizationId": "abc123"}]}]
   }
 ]'></textarea>
-          <div class="json-hint">[{"collection": "name", "required_field": "fieldName", "synthetic_docs": [{...}]}, ...]</div>
-          <div class="json-hint" style="margin-top:4px;color:var(--text-muted);">Tip: add extra collections with irrelevant synthetic_docs to make the investigation harder. Trainees can run <span style="color:var(--text-warning)">show collections</span> and <span style="color:var(--text-warning)">db.X.findOne()</span> to explore all of them.</div>
+          <div class="json-hint">[{"collection":"name","required_field":"fieldName","synthetic_docs":[{...}]}, ...]</div>
+          <div class="json-hint" style="margin-top:4px;color:var(--text-muted);">Add extra collections with irrelevant docs to make the investigation harder.</div>
         </div>
 
+        <!-- ── Hints Builder ──────────────────────────────────── -->
         <div class="form-group">
-          <label for="f-hints">Hints <span class="label-hint">JSON array — first hint cost should be 0 (free)</span></label>
-          <textarea id="f-hints" rows="4" class="mono-input" placeholder='[{"text":"Check the Atlas alert…","cost":0},{"text":"The held_ms values…","cost":25}]'></textarea>
-          <div class="json-hint">[{"text": "...", "cost": 0}, {"text": "...", "cost": 25}, ...]</div>
+          <label>Hints <span class="label-hint">first hint should be free (cost 0)</span></label>
+          <div class="builder-list" id="hints-list"></div>
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-add-hint">+ Add hint</button>
         </div>
 
+        <!-- ── Questions Builder ──────────────────────────────── -->
         <div class="form-group">
-          <label for="f-questions">Questions <span class="label-hint">JSON array — each entry is one question with label, question text, options, correct_option (0–3), points, and explanation shown in debrief</span></label>
-          <textarea id="f-questions" rows="14" class="mono-input" placeholder='[
-  {
-    "label": "Root Cause",
-    "question": "What is the root cause?",
-    "options": ["Option A", "Option B", "Option C", "Option D"],
-    "correct_option": 1,
-    "points": 100,
-    "explanation": "The root cause was X because..."
-  },
-  {
-    "label": "Customer Response",
-    "question": "Which response do you send to the customer?",
-    "options": ["Option A", "Option B", "Option C", "Option D"],
-    "correct_option": 2,
-    "points": 50,
-    "explanation": "Option C is correct because it clearly explains the issue without jargon..."
-  }
-]'></textarea>
-          <div class="json-hint">[{"label":"...", "question":"...", "options":[4 strings], "correct_option":0, "points":100, "explanation":"..."}, ...]</div>
+          <label>Questions</label>
+          <div class="builder-list" id="questions-list"></div>
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-add-question">+ Add question</button>
         </div>
 
+        <!-- ── Metadata ───────────────────────────────────────── -->
         <div class="form-group">
-          <label for="f-tags">Skill Tags <span class="label-hint">JSON array of strings, e.g. ["log-analysis","smtp","mongodb"]</span></label>
+          <label for="f-tags">Skill Tags <span class="label-hint">JSON array, e.g. ["log-analysis","smtp"]</span></label>
           <input type="text" id="f-tags" placeholder='["log-analysis","smtp","mongodb"]' class="mono-input">
         </div>
 
         <div class="form-group">
-          <label for="f-variant-group">Variant Group <span class="label-hint">optional — slug shared by all variants of the same root cause, e.g. email-from-error</span></label>
+          <label for="f-variant-group">Variant Group <span class="label-hint">optional — slug shared by all variants, e.g. email-from-error</span></label>
           <input type="text" id="f-variant-group" placeholder="email-from-error" class="mono-input">
         </div>
 
@@ -244,11 +310,7 @@
         <table id="ch-table" class="hidden">
           <thead>
             <tr>
-              <th>ID</th>
-              <th>Title</th>
-              <th>Points</th>
-              <th>Status</th>
-              <th>Actions</th>
+              <th>ID</th><th>Title</th><th>Points</th><th>Status</th><th>Actions</th>
             </tr>
           </thead>
           <tbody id="ch-tbody"></tbody>
@@ -269,13 +331,7 @@
         <table id="scores-table" class="hidden">
           <thead>
             <tr>
-              <th>#</th>
-              <th>Handle</th>
-              <th>Theme</th>
-              <th>Total Score</th>
-              <th>Challenges Solved</th>
-              <th>Joined</th>
-              <th></th>
+              <th>#</th><th>Handle</th><th>Theme</th><th>Total Score</th><th>Challenges Solved</th><th>Joined</th><th></th>
             </tr>
           </thead>
           <tbody id="scores-tbody"></tbody>
@@ -296,11 +352,7 @@
         <table id="reflections-table" class="hidden">
           <thead>
             <tr>
-              <th>Handle</th>
-              <th>Challenge</th>
-              <th>Difficulty</th>
-              <th>Reflection</th>
-              <th>Date</th>
+              <th>Handle</th><th>Challenge</th><th>Difficulty</th><th>Reflection</th><th>Date</th>
             </tr>
           </thead>
           <tbody id="reflections-tbody"></tbody>
@@ -335,53 +387,265 @@ function parseJsonField(raw, label) {
   catch(e) { return { ok: false, error: `${label}: invalid JSON — ${e.message}` }; }
 }
 
-// ── Main ─────────────────────────────────────────────────────────────────────
+function err(msg) {
+  return `<div class="alert alert-danger" style="margin:0;padding:8px 12px;"><p>${escHtml(msg)}</p></div>`;
+}
+
+// ── Builder: Log Files ────────────────────────────────────────────────────────
+
+function makeLogFileItem(lf = {}, idx) {
+  const div = document.createElement('div');
+  div.className = 'builder-item';
+  div.innerHTML = `
+    <div class="builder-item-header">
+      <span class="builder-item-label">Log File ${idx + 1}</span>
+      <button type="button" class="btn-remove-item" title="Remove">×</button>
+    </div>
+    <div class="form-group">
+      <label class="field-label">Filename</label>
+      <input type="text" class="log-filename mono-input" placeholder="server-logs.json" value="${escHtml(lf.filename || 'server-logs.json')}">
+    </div>
+    <div class="form-group">
+      <label class="field-label">Log data <span class="label-hint">JSON array of log objects</span></label>
+      <textarea class="log-data mono-input" rows="5" placeholder='[{"ts":"2024-01-15T23:47:18Z","level":"warn","msg":"Pool wait exceeded"}]'>${lf.logs ? escHtml(JSON.stringify(lf.logs, null, 2)) : ''}</textarea>
+      <div class="json-hint">[{...}, {...}] — each object is one log line</div>
+    </div>
+  `;
+  div.querySelector('.btn-remove-item').addEventListener('click', () => {
+    div.remove();
+    renumberList('log-files-list', 'Log File');
+  });
+  return div;
+}
+
+function renderLogFilesBuilder(logFiles) {
+  const list = document.getElementById('log-files-list');
+  list.innerHTML = '';
+  const items = (logFiles && logFiles.length) ? logFiles : [{}];
+  items.forEach((lf, i) => list.appendChild(makeLogFileItem(lf, i)));
+}
+
+function collectLogFiles() {
+  const items = document.querySelectorAll('#log-files-list .builder-item');
+  const result = [];
+  for (const item of items) {
+    const filename = item.querySelector('.log-filename').value.trim() || 'server-logs.json';
+    const rawLogs  = item.querySelector('.log-data').value.trim();
+    if (!rawLogs) continue;
+    try {
+      result.push({ filename, logs: JSON.parse(rawLogs) });
+    } catch(e) {
+      return { ok: false, error: `Log file "${filename}": invalid JSON — ${e.message}` };
+    }
+  }
+  return { ok: true, value: result };
+}
+
+// ── Builder: Screenshots ──────────────────────────────────────────────────────
+
+function makeScreenshotItem(s = {}) {
+  const div = document.createElement('div');
+  div.className = 'builder-item';
+  div.innerHTML = `
+    <div class="screenshot-row">
+      <div>
+        <label class="field-label">Image URL</label>
+        <input type="url" class="screenshot-url" placeholder="https://i.imgur.com/example.png" value="${escHtml(s.url || '')}">
+      </div>
+      <div>
+        <label class="field-label">Caption <span class="label-hint">optional</span></label>
+        <input type="text" class="screenshot-caption" placeholder="Error message shown in dashboard" value="${escHtml(s.caption || '')}">
+      </div>
+      <button type="button" class="btn-remove-item" style="margin-top:18px;" title="Remove">×</button>
+    </div>
+  `;
+  div.querySelector('.btn-remove-item').addEventListener('click', () => div.remove());
+  return div;
+}
+
+function renderScreenshotsBuilder(screenshots) {
+  const list = document.getElementById('screenshots-list');
+  list.innerHTML = '';
+  (screenshots || []).forEach(s => list.appendChild(makeScreenshotItem(s)));
+}
+
+function collectScreenshots() {
+  return Array.from(document.querySelectorAll('#screenshots-list .builder-item'))
+    .map(item => ({
+      url:     item.querySelector('.screenshot-url').value.trim(),
+      caption: item.querySelector('.screenshot-caption').value.trim()
+    }))
+    .filter(s => s.url);
+}
+
+// ── Builder: Hints ────────────────────────────────────────────────────────────
+
+function makeHintItem(h = {}, idx) {
+  const div = document.createElement('div');
+  div.className = 'builder-item';
+  div.innerHTML = `
+    <div class="hint-row">
+      <div>
+        <label class="field-label">Cost (pts)</label>
+        <input type="number" class="hint-cost mono-input" value="${h.cost ?? (idx === 0 ? 0 : 25)}" min="0" step="5" style="width:100%;">
+        <div class="json-hint" style="color:var(--text-success);">0 = free</div>
+      </div>
+      <div>
+        <label class="field-label">Hint text</label>
+        <textarea class="hint-text" rows="2" placeholder="Check the connection pool settings in Atlas…">${escHtml(h.text || '')}</textarea>
+      </div>
+      <button type="button" class="btn-remove-item" style="margin-top:18px;" title="Remove">×</button>
+    </div>
+  `;
+  div.querySelector('.btn-remove-item').addEventListener('click', () => div.remove());
+  return div;
+}
+
+function renderHintsBuilder(hints) {
+  const list = document.getElementById('hints-list');
+  list.innerHTML = '';
+  const items = (hints && hints.length) ? hints : [{ cost: 0, text: '' }];
+  items.forEach((h, i) => list.appendChild(makeHintItem(h, i)));
+}
+
+function collectHints() {
+  return Array.from(document.querySelectorAll('#hints-list .builder-item')).map(item => ({
+    cost: parseInt(item.querySelector('.hint-cost').value) || 0,
+    text: item.querySelector('.hint-text').value.trim()
+  }));
+}
+
+// ── Builder: Questions ────────────────────────────────────────────────────────
+
+const LETTERS = ['A','B','C','D'];
+
+function makeQuestionItem(q = {}, idx) {
+  const div = document.createElement('div');
+  div.className = 'builder-item';
+
+  const optsHtml = LETTERS.map((letter, oi) => `
+    <div class="q-option-row">
+      <input type="radio" name="correct-${idx}" value="${oi}" ${(q.correct_option ?? 0) === oi ? 'checked' : ''}>
+      <span class="q-option-letter">${letter}</span>
+      <input type="text" class="q-opt" data-oi="${oi}" placeholder="Option ${letter}" value="${escHtml((q.options || [])[oi] || '')}">
+    </div>
+  `).join('');
+
+  div.innerHTML = `
+    <div class="builder-item-header">
+      <span class="builder-item-label">Question ${idx + 1}</span>
+      <button type="button" class="btn-remove-item" title="Remove">×</button>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="field-label">Label <span class="label-hint">e.g. "Root Cause"</span></label>
+        <input type="text" class="q-label" placeholder="Root Cause" value="${escHtml(q.label || '')}">
+      </div>
+      <div class="form-group" style="max-width:100px;">
+        <label class="field-label">Points</label>
+        <input type="number" class="q-points mono-input" value="${q.points ?? 100}" min="0" step="10">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="field-label">Question text</label>
+      <textarea class="q-question" rows="2" placeholder="What is the root cause of this incident?">${escHtml(q.question || '')}</textarea>
+    </div>
+    <div class="form-group">
+      <label class="field-label">Options — select the correct answer</label>
+      <div class="q-options-grid">${optsHtml}</div>
+      <div class="json-hint">Click the radio button next to the correct option.</div>
+    </div>
+    <div class="form-group">
+      <label class="field-label">Explanation <span class="label-hint">shown in debrief after answering</span></label>
+      <textarea class="q-explanation" rows="2" placeholder="The correct answer is… because…">${escHtml(q.explanation || '')}</textarea>
+    </div>
+  `;
+  div.querySelector('.btn-remove-item').addEventListener('click', () => {
+    div.remove();
+    renumberQuestions();
+  });
+  return div;
+}
+
+function renumberQuestions() {
+  document.querySelectorAll('#questions-list .builder-item').forEach((item, i) => {
+    item.querySelector('.builder-item-label').textContent = `Question ${i + 1}`;
+    item.querySelectorAll('input[type="radio"]').forEach(r => { r.name = `correct-${i}`; });
+  });
+}
+
+function renderQuestionsBuilder(questions) {
+  const list = document.getElementById('questions-list');
+  list.innerHTML = '';
+  const items = (questions && questions.length) ? questions : [];
+  items.forEach((q, i) => list.appendChild(makeQuestionItem(q, i)));
+}
+
+function collectQuestions() {
+  const items = document.querySelectorAll('#questions-list .builder-item');
+  return Array.from(items).map((item, i) => {
+    const opts = Array.from(item.querySelectorAll('.q-opt')).map(inp => inp.value.trim());
+    const radios = Array.from(item.querySelectorAll('input[type="radio"]'));
+    const correctIdx = radios.findIndex(r => r.checked);
+    return {
+      label:          item.querySelector('.q-label').value.trim() || `Question ${i + 1}`,
+      question:       item.querySelector('.q-question').value.trim(),
+      options:        opts,
+      correct_option: correctIdx >= 0 ? correctIdx : 0,
+      points:         parseInt(item.querySelector('.q-points').value) || 100,
+      explanation:    item.querySelector('.q-explanation').value.trim()
+    };
+  });
+}
+
+// ── Shared: renumber a builder list ──────────────────────────────────────────
+function renumberList(listId, labelPrefix) {
+  document.querySelectorAll(`#${listId} .builder-item-label`).forEach((el, i) => {
+    el.textContent = `${labelPrefix} ${i + 1}`;
+  });
+}
+
+// ── Main ──────────────────────────────────────────────────────────────────────
 (async () => {
   const ctx = await Auth.requireAdmin();
   if (!ctx) return;
 
-  // Wire nav logout (no populateNav since we show 'admin' badge, not score)
   document.getElementById('nav-handle').textContent = ctx.profile.handle;
   document.getElementById('nav-logout').addEventListener('click', () => Auth.signOut());
 
   // ── Tabs ──────────────────────────────────────────────────────────────────
-
-  const tabBtns   = document.querySelectorAll('.tab-btn');
+  const tabBtns  = document.querySelectorAll('.tab-btn');
   const tabPanels = document.querySelectorAll('.tab-panel');
-  let scoresLoaded       = false;
-  let challengesLoaded   = false;
-  let reflectionsLoaded  = false;
+  let scoresLoaded = false, challengesLoaded = false, reflectionsLoaded = false;
 
   tabBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       tabBtns.forEach(b => b.classList.toggle('active', b === btn));
       tabPanels.forEach(p => p.classList.toggle('active', p.id === `tab-${btn.dataset.tab}`));
-      if (btn.dataset.tab === 'scores' && !scoresLoaded) loadScores();
-      if (btn.dataset.tab === 'challenges' && !challengesLoaded) loadChallenges();
+      if (btn.dataset.tab === 'scores'      && !scoresLoaded)      loadScores();
+      if (btn.dataset.tab === 'challenges'  && !challengesLoaded)  loadChallenges();
       if (btn.dataset.tab === 'reflections' && !reflectionsLoaded) loadReflections();
     });
   });
 
   // ── Invite ────────────────────────────────────────────────────────────────
-
   document.getElementById('btn-send-invite').addEventListener('click', async () => {
     const email = document.getElementById('invite-email').value.trim();
     const role  = document.querySelector('input[name="invite-role"]:checked').value;
     const fb    = document.getElementById('invite-feedback');
-
     if (!email) { fb.innerHTML = '<div class="alert alert-danger"><p>Email required.</p></div>'; return; }
 
     const btn = document.getElementById('btn-send-invite');
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> Sending…';
-    fb.innerHTML  = '';
+    fb.innerHTML = '';
 
     const token = await Auth.getAccessToken();
     try {
       const res = await fetch('/api/invite', {
-        method:  'POST',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body:    JSON.stringify({ email, role })
+        body: JSON.stringify({ email, role })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Request failed');
@@ -390,13 +654,33 @@ function parseJsonField(raw, label) {
     } catch(e) {
       fb.innerHTML = `<div class="alert alert-danger"><p>${escHtml(e.message)}</p></div>`;
     }
-
-    btn.disabled    = false;
+    btn.disabled = false;
     btn.textContent = 'Send invite';
   });
 
-  // ── Challenges: Load ──────────────────────────────────────────────────────
+  // ── Builder: add buttons ──────────────────────────────────────────────────
+  document.getElementById('btn-add-log').addEventListener('click', () => {
+    const list = document.getElementById('log-files-list');
+    list.appendChild(makeLogFileItem({}, list.children.length));
+    renumberList('log-files-list', 'Log File');
+  });
 
+  document.getElementById('btn-add-screenshot').addEventListener('click', () => {
+    document.getElementById('screenshots-list').appendChild(makeScreenshotItem());
+  });
+
+  document.getElementById('btn-add-hint').addEventListener('click', () => {
+    const list = document.getElementById('hints-list');
+    list.appendChild(makeHintItem({}, list.children.length));
+  });
+
+  document.getElementById('btn-add-question').addEventListener('click', () => {
+    const list = document.getElementById('questions-list');
+    list.appendChild(makeQuestionItem({}, list.children.length));
+    renumberQuestions();
+  });
+
+  // ── Challenges: Load ──────────────────────────────────────────────────────
   async function loadChallenges() {
     challengesLoaded = true;
     const { data: challenges, error } = await _supabase
@@ -407,12 +691,7 @@ function parseJsonField(raw, label) {
     document.getElementById('ch-table-loading').style.display = 'none';
     const table = document.getElementById('ch-table');
     table.classList.remove('hidden');
-
-    if (error) {
-      showGlobalAlert('Failed to load challenges: ' + error.message, 'danger');
-      return;
-    }
-
+    if (error) { showGlobalAlert('Failed to load challenges: ' + error.message, 'danger'); return; }
     document.getElementById('ch-count').textContent = challenges.length + ' total';
     renderChallengeTable(challenges);
   }
@@ -434,8 +713,8 @@ function parseJsonField(raw, label) {
         <td>
           <div class="challenge-row-actions">
             <button class="btn btn-ghost btn-sm btn-edit-ch" data-id="${escHtml(ch.id)}">Edit</button>
-            <button class="btn btn-ghost btn-sm btn-duplicate-ch" data-id="${escHtml(ch.id)}" title="Duplicate with randomized timestamps and IDs">Duplicate</button>
-            ${ch.variant_group ? `<button class="btn btn-ghost btn-sm btn-force-variant" data-group="${escHtml(ch.variant_group)}" title="Back-date all group submissions to force next variant to appear">Force Variant</button>` : ''}
+            <button class="btn btn-ghost btn-sm btn-duplicate-ch" data-id="${escHtml(ch.id)}">Duplicate</button>
+            ${ch.variant_group ? `<button class="btn btn-ghost btn-sm btn-force-variant" data-group="${escHtml(ch.variant_group)}">Force Variant</button>` : ''}
             <button class="btn btn-danger btn-sm btn-delete-ch" data-id="${escHtml(ch.id)}" data-title="${escHtml(ch.title)}">Delete</button>
           </div>
         </td>
@@ -443,86 +722,74 @@ function parseJsonField(raw, label) {
       tbody.appendChild(tr);
     });
 
-    // Toggle active
-    tbody.querySelectorAll('.toggle-pill').forEach(btn => {
-      btn.addEventListener('click', () => toggleActive(btn.dataset.id, btn.dataset.active === 'true'));
-    });
-    // Force Variant
+    tbody.querySelectorAll('.toggle-pill').forEach(btn =>
+      btn.addEventListener('click', () => toggleActive(btn.dataset.id, btn.dataset.active === 'true')));
+
     tbody.querySelectorAll('.btn-force-variant').forEach(btn => {
       btn.addEventListener('click', async () => {
         const group = btn.dataset.group;
-        if (!confirm(`Force next variant for group "${group}"?\n\nThis back-dates all submissions in the group to 92 days ago so every user sees the next variant on their next visit.`)) return;
-        btn.disabled = true;
-        btn.textContent = '…';
+        if (!confirm(`Force next variant for group "${group}"?\n\nBack-dates all group submissions to 92 days ago so every user sees the next variant.`)) return;
+        btn.disabled = true; btn.textContent = '…';
         const { data, error } = await _supabase.rpc('admin_force_variant', { p_group: group });
-        btn.disabled = false;
-        btn.textContent = 'Force Variant';
-        if (error || !data?.success) {
-          showGlobalAlert(data?.error || error?.message || 'Failed', 'danger');
-        } else {
-          showGlobalAlert(`Variant forced for group "${group}" — next visit will show the next variant.`);
-        }
+        btn.disabled = false; btn.textContent = 'Force Variant';
+        if (error || !data?.success) showGlobalAlert(data?.error || error?.message || 'Failed', 'danger');
+        else showGlobalAlert(`Variant forced for group "${group}".`);
       });
     });
 
-    // Duplicate
-    tbody.querySelectorAll('.btn-duplicate-ch').forEach(btn => {
-      btn.addEventListener('click', () => duplicateChallenge(btn.dataset.id, challenges));
-    });
-
-    // Edit
-    tbody.querySelectorAll('.btn-edit-ch').forEach(btn => {
-      btn.addEventListener('click', () => editChallenge(btn.dataset.id));
-    });
-    // Delete
-    tbody.querySelectorAll('.btn-delete-ch').forEach(btn => {
-      btn.addEventListener('click', () => deleteChallenge(btn.dataset.id, btn.dataset.title));
-    });
+    tbody.querySelectorAll('.btn-duplicate-ch').forEach(btn =>
+      btn.addEventListener('click', () => duplicateChallenge(btn.dataset.id, challenges)));
+    tbody.querySelectorAll('.btn-edit-ch').forEach(btn =>
+      btn.addEventListener('click', () => editChallenge(btn.dataset.id)));
+    tbody.querySelectorAll('.btn-delete-ch').forEach(btn =>
+      btn.addEventListener('click', () => deleteChallenge(btn.dataset.id, btn.dataset.title)));
   }
 
   async function toggleActive(id, current) {
-    const { error } = await _supabase
-      .from('challenges')
-      .update({ active: !current })
-      .eq('id', id);
-    if (error) { showGlobalAlert('Failed to update: ' + error.message, 'danger'); return; }
+    const { error } = await _supabase.from('challenges').update({ active: !current }).eq('id', id);
+    if (error) { showGlobalAlert('Failed: ' + error.message, 'danger'); return; }
     showGlobalAlert(`${id} is now ${!current ? 'active' : 'inactive'}.`);
+    challengesLoaded = false;
     await loadChallenges();
   }
 
   async function deleteChallenge(id, title) {
-    if (!confirm(`Delete "${title}" (${id})?\n\nThis also removes all submissions for this challenge. This cannot be undone.`)) return;
+    if (!confirm(`Delete "${title}" (${id})?\n\nAlso removes all submissions. Cannot be undone.`)) return;
     const { error } = await _supabase.from('challenges').delete().eq('id', id);
     if (error) { showGlobalAlert('Delete failed: ' + error.message, 'danger'); return; }
     showGlobalAlert(`${id} deleted.`);
     resetForm();
+    challengesLoaded = false;
     await loadChallenges();
   }
 
-  // ── Challenge Form: Load for Edit ─────────────────────────────────────────
-
+  // ── Edit: populate builders from loaded challenge ─────────────────────────
   async function editChallenge(id) {
-    const { data: ch, error } = await _supabase
-      .from('challenges').select('*').eq('id', id).single();
+    const { data: ch, error } = await _supabase.from('challenges').select('*').eq('id', id).single();
     if (error || !ch) { showGlobalAlert('Failed to load challenge.', 'danger'); return; }
 
     document.getElementById('form-panel-title').textContent = 'Edit: ' + ch.id;
-    document.getElementById('f-edit-id').value   = ch.id;
-    document.getElementById('f-id').value        = ch.id;
-    document.getElementById('f-id').disabled     = true; // can't change PK
-    document.getElementById('f-title').value     = ch.title;
-    document.getElementById('f-scenario').value  = ch.scenario;
-    document.getElementById('f-ticket').value    = ch.ticket_quote;
-    document.getElementById('f-arch').value      = ch.arch_context;
-    document.getElementById('f-red-herrings').value   = JSON.stringify(ch.red_herrings, null, 2);
-    document.getElementById('f-server-logs').value    = JSON.stringify(ch.server_logs, null, 2);
-    document.getElementById('f-log-filename').value   = ch.server_logs_filename;
-    document.getElementById('f-mongo-collections').value = JSON.stringify(ch.mongo_collections, null, 2);
-    document.getElementById('f-hints').value    = JSON.stringify(ch.hints, null, 2);
-    document.getElementById('f-questions').value     = JSON.stringify(ch.questions, null, 2);
-    document.getElementById('f-tags').value          = ch.tags ? JSON.stringify(ch.tags) : '[]';
-    document.getElementById('f-variant-group').value = ch.variant_group || '';
-    document.getElementById('f-active').checked      = ch.active;
+    document.getElementById('f-edit-id').value  = ch.id;
+    document.getElementById('f-id').value       = ch.id;
+    document.getElementById('f-id').disabled    = true;
+    document.getElementById('f-title').value    = ch.title;
+    document.getElementById('f-scenario').value = ch.scenario;
+    document.getElementById('f-ticket').value   = ch.ticket_quote;
+    document.getElementById('f-arch').value     = ch.arch_context;
+    document.getElementById('f-red-herrings').value       = JSON.stringify(ch.red_herrings || [], null, 2);
+    document.getElementById('f-mongo-collections').value  = JSON.stringify(ch.mongo_collections || [], null, 2);
+    document.getElementById('f-tags').value               = ch.tags ? JSON.stringify(ch.tags) : '[]';
+    document.getElementById('f-variant-group').value      = ch.variant_group || '';
+    document.getElementById('f-active').checked           = ch.active;
+
+    // Builders: use log_files if available, fall back to legacy fields
+    const logFiles = (ch.log_files && ch.log_files.length)
+      ? ch.log_files
+      : [{ filename: ch.server_logs_filename || 'server-logs.json', logs: ch.server_logs || [] }];
+    renderLogFilesBuilder(logFiles);
+    renderScreenshotsBuilder(ch.screenshots || []);
+    renderHintsBuilder(ch.hints || []);
+    renderQuestionsBuilder(ch.questions || []);
 
     document.getElementById('btn-save-challenge').textContent = 'Update challenge';
     document.getElementById('challenge-form-panel').scrollIntoView({ behavior: 'smooth' });
@@ -530,72 +797,74 @@ function parseJsonField(raw, label) {
 
   function resetForm() {
     document.getElementById('form-panel-title').textContent = 'Add New Challenge';
-    document.getElementById('f-edit-id').value = '';
-    document.getElementById('f-id').value = '';
-    document.getElementById('f-id').disabled = false;
-    ['f-title','f-scenario','f-ticket','f-arch','f-red-herrings',
-     'f-server-logs','f-mongo-collections',
-     'f-hints','f-questions'].forEach(id => {
+    document.getElementById('f-edit-id').value  = '';
+    document.getElementById('f-id').value       = '';
+    document.getElementById('f-id').disabled    = false;
+    ['f-title','f-scenario','f-ticket','f-arch','f-red-herrings','f-mongo-collections'].forEach(id => {
       document.getElementById(id).value = '';
     });
-    document.getElementById('f-log-filename').value  = 'server-logs.json';
     document.getElementById('f-tags').value          = '[]';
     document.getElementById('f-variant-group').value = '';
     document.getElementById('f-active').checked      = true;
+
+    renderLogFilesBuilder([]);
+    renderScreenshotsBuilder([]);
+    renderHintsBuilder([]);
+    renderQuestionsBuilder([]);
+
     document.getElementById('btn-save-challenge').textContent = 'Save challenge';
-    document.getElementById('form-save-feedback').innerHTML = '';
+    document.getElementById('form-save-feedback').innerHTML   = '';
   }
 
   document.getElementById('btn-reset-form').addEventListener('click', resetForm);
 
-  // ── Challenge Form: Save ──────────────────────────────────────────────────
+  // Initialise builders with one empty item each
+  resetForm();
 
+  // ── Save ──────────────────────────────────────────────────────────────────
   document.getElementById('btn-save-challenge').addEventListener('click', async () => {
     const fb = document.getElementById('form-save-feedback');
     fb.innerHTML = '';
 
     const editId = document.getElementById('f-edit-id').value.trim();
     const isEdit = !!editId;
+    const id     = document.getElementById('f-id').value.trim().toUpperCase();
+    const title  = document.getElementById('f-title').value.trim();
 
-    // Collect + validate
-    const id    = document.getElementById('f-id').value.trim().toUpperCase();
-    const title = document.getElementById('f-title').value.trim();
     if (!id)    { fb.innerHTML = err('Challenge ID is required.'); return; }
     if (!title) { fb.innerHTML = err('Title is required.'); return; }
     if (!/^[A-Z0-9\-]+$/.test(id)) {
-      fb.innerHTML = err('ID must be uppercase alphanumeric with hyphens, e.g. TICKET-0002.'); return;
+      fb.innerHTML = err('ID must be uppercase alphanumeric with hyphens, e.g. TICKET-0004.'); return;
     }
 
-    // Parse JSON fields
-    const redH   = parseJsonField(document.getElementById('f-red-herrings').value    || '[]', 'Red Herrings');
-    const logs   = parseJsonField(document.getElementById('f-server-logs').value      || '[]', 'Server Logs');
-    const mCols  = parseJsonField(document.getElementById('f-mongo-collections').value || '[]', 'MongoDB Collections');
-    const hints  = parseJsonField(document.getElementById('f-hints').value            || '[]', 'Hints');
-    const qs_f   = parseJsonField(document.getElementById('f-questions').value        || '[]', 'Questions');
+    // Collect builders
+    const logFilesResult = collectLogFiles();
+    if (!logFilesResult.ok) { fb.innerHTML = err(logFilesResult.error); return; }
+    if (!logFilesResult.value.length) { fb.innerHTML = err('At least one log file is required.'); return; }
 
-    for (const field of [redH, logs, mCols, hints, qs_f]) {
-      if (!field.ok) { fb.innerHTML = err(field.error); return; }
-    }
+    const screenshots = collectScreenshots();
+    const hints       = collectHints();
+    const questions   = collectQuestions();
 
-    if (!Array.isArray(qs_f.value) || !qs_f.value.length) {
-      fb.innerHTML = err('Questions must be a non-empty JSON array.'); return;
-    }
-    for (const q of qs_f.value) {
-      if (!q.question || !Array.isArray(q.options) || q.options.length !== 4 || q.correct_option === undefined) {
-        fb.innerHTML = err('Each question needs: question, options (4 strings), correct_option (0–3), points, explanation.');
-        return;
-      }
+    if (!questions.length) { fb.innerHTML = err('At least one question is required.'); return; }
+    for (const q of questions) {
+      if (!q.question) { fb.innerHTML = err(`A question is missing its question text.`); return; }
+      if (q.options.some(o => !o)) { fb.innerHTML = err(`All 4 options must be filled in for each question.`); return; }
     }
 
-    if (!Array.isArray(mCols.value)) {
-      fb.innerHTML = err('MongoDB Collections must be a JSON array.'); return;
-    }
+    // Parse remaining JSON fields
+    const redH  = parseJsonField(document.getElementById('f-red-herrings').value || '[]', 'Red Herrings');
+    const mCols = parseJsonField(document.getElementById('f-mongo-collections').value || '[]', 'MongoDB Collections');
+    if (!redH.ok)  { fb.innerHTML = err(redH.error);  return; }
+    if (!mCols.ok) { fb.innerHTML = err(mCols.error); return; }
     for (const col of mCols.value) {
       if (!col.collection || !Array.isArray(col.synthetic_docs)) {
-        fb.innerHTML = err('Each MongoDB collection entry needs: collection and synthetic_docs[].');
-        return;
+        fb.innerHTML = err('Each MongoDB collection needs: collection and synthetic_docs[].'); return;
       }
     }
+
+    // Build the primary log file refs for backward compat
+    const primaryLog = logFilesResult.value[0];
 
     const row = {
       id,
@@ -604,14 +873,16 @@ function parseJsonField(raw, label) {
       ticket_quote:         document.getElementById('f-ticket').value.trim(),
       arch_context:         document.getElementById('f-arch').value.trim(),
       red_herrings:         redH.value,
-      server_logs:          logs.value,
-      server_logs_filename: document.getElementById('f-log-filename').value.trim() || 'server-logs.json',
+      server_logs:          primaryLog.logs,           // keep for backward compat
+      server_logs_filename: primaryLog.filename,       // keep for backward compat
+      log_files:            logFilesResult.value,
+      screenshots,
       mongo_collections:    mCols.value,
-      questions:            qs_f.value,
-      hints:                hints.value,
-      tags:                 (() => { try { return JSON.parse(document.getElementById('f-tags').value || '[]'); } catch(e) { return []; } })(),
-      variant_group:        document.getElementById('f-variant-group').value.trim() || null,
-      active:               document.getElementById('f-active').checked
+      questions,
+      hints,
+      tags:         (() => { try { return JSON.parse(document.getElementById('f-tags').value || '[]'); } catch(e) { return []; } })(),
+      variant_group: document.getElementById('f-variant-group').value.trim() || null,
+      active:        document.getElementById('f-active').checked
     };
 
     const btn = document.getElementById('btn-save-challenge');
@@ -620,7 +891,7 @@ function parseJsonField(raw, label) {
 
     let error;
     if (isEdit) {
-      const { id: _omit, ...updateRow } = row; // never change the primary key
+      const { id: _omit, ...updateRow } = row;
       const { error: e } = await _supabase.from('challenges').update(updateRow).eq('id', editId);
       error = e;
     } else {
@@ -631,10 +902,7 @@ function parseJsonField(raw, label) {
     btn.disabled    = false;
     btn.textContent = isEdit ? 'Update challenge' : 'Save challenge';
 
-    if (error) {
-      fb.innerHTML = err(error.message);
-      return;
-    }
+    if (error) { fb.innerHTML = err(error.message); return; }
 
     fb.innerHTML = `<div class="alert alert-success" style="margin:0;padding:8px 12px;">
       <p>${isEdit ? 'Updated' : 'Created'} ${escHtml(id)} ✓</p></div>`;
@@ -643,122 +911,17 @@ function parseJsonField(raw, label) {
     await loadChallenges();
   });
 
-  function err(msg) {
-    return `<div class="alert alert-danger" style="margin:0;padding:8px 12px;"><p>${escHtml(msg)}</p></div>`;
-  }
-
-  // ── Load on challenges tab active by default if user hits it ──────────────
-  // challenges tab is not active by default, but let's preload on first click
-  // (already handled in tab click handler above)
-
-  // ── Scores ────────────────────────────────────────────────────────────────
-
-  async function loadScores() {
-    scoresLoaded = true;
-    const [profilesRes, submissionsRes] = await Promise.all([
-      _supabase.from('profiles').select('id, handle, score, theme, created_at').order('score', { ascending: false }),
-      _supabase.from('submissions').select('user_id, challenge_id, score_earned, completed_at, reflection, difficulty_rating')
-    ]);
-
-    document.getElementById('scores-loading').style.display = 'none';
-    const table = document.getElementById('scores-table');
-    table.classList.remove('hidden');
-
-    if (profilesRes.error) {
-      showGlobalAlert('Failed to load scores: ' + profilesRes.error.message, 'danger');
-      return;
-    }
-
-    const profiles    = profilesRes.data    || [];
-    const submissions = submissionsRes.data || [];
-
-    const subCountMap = {};
-    submissions.forEach(s => {
-      subCountMap[s.user_id] = (subCountMap[s.user_id] || 0) + 1;
-    });
-
-    const tbody = document.getElementById('scores-tbody');
-    tbody.innerHTML = '';
-    profiles.forEach((p, i) => {
-      const solved = subCountMap[p.id] || 0;
-      const joined = new Date(p.created_at).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
-      const tr = document.createElement('tr');
-      // (scores table rendering continues below)
-      const themeLabel  = p.theme === 'sturnus' ? 'STURNUS' : 'V.H.S.';
-      const themeBadge  = p.theme === 'sturnus'
-        ? `<span class="badge badge-success">${themeLabel}</span>`
-        : `<span class="badge badge-purple">${themeLabel}</span>`;
-      const newTheme    = p.theme === 'sturnus' ? 'vhs' : 'sturnus';
-      const newLabel    = p.theme === 'sturnus' ? '→ V.H.S.' : '→ STURNUS';
-
-      tr.innerHTML = `
-        <td class="td-mono" style="color:var(--text-muted)">${i + 1}</td>
-        <td style="font-weight:600;">${escHtml(p.handle)}</td>
-        <td>${themeBadge} <button class="btn btn-ghost btn-sm btn-switch-theme" data-id="${escHtml(p.id)}" data-handle="${escHtml(p.handle)}" data-theme="${newTheme}" style="font-size:10px;padding:1px 6px;">${newLabel}</button></td>
-        <td class="td-mono" style="color:var(--text-success);font-weight:700;">${p.score.toLocaleString()}</td>
-        <td class="td-mono">${solved}</td>
-        <td class="text-muted text-sm">${joined}</td>
-        <td><button class="btn btn-ghost btn-sm btn-reset-scores" data-id="${escHtml(p.id)}" data-handle="${escHtml(p.handle)}" ${p.score === 0 && solved === 0 ? 'disabled' : ''}>Reset</button></td>
-      `;
-      tbody.appendChild(tr);
-    });
-
-    tbody.querySelectorAll('.btn-switch-theme').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const { error } = await _supabase
-          .from('profiles')
-          .update({ theme: btn.dataset.theme })
-          .eq('id', btn.dataset.id);
-        if (error) { showGlobalAlert('Theme switch failed: ' + error.message, 'danger'); return; }
-        showGlobalAlert(`${btn.dataset.handle} switched to ${btn.dataset.theme === 'vhs' ? 'V.H.S.' : 'STURNUS'}.`);
-        scoresLoaded = false;
-        await loadScores();
-      });
-    });
-
-    tbody.querySelectorAll('.btn-reset-scores').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const handle = btn.dataset.handle;
-        if (!confirm(`Reset all scores and submissions for "${handle}"?\n\nThis clears their score, all submissions, and all hint unlocks. Cannot be undone.`)) return;
-
-        btn.disabled = true;
-        btn.textContent = '…';
-
-        const { data, error } = await _supabase.rpc('reset_user_scores', { p_user_id: btn.dataset.id });
-
-        if (error || !data?.success) {
-          showGlobalAlert(data?.error || error?.message || 'Reset failed', 'danger');
-          btn.disabled = false;
-          btn.textContent = 'Reset';
-          return;
-        }
-
-        showGlobalAlert(`${handle} reset to 0 pts.`);
-        scoresLoaded = false;
-        await loadScores();
-      });
-    });
-  }
-
-  // ── Duplicate challenge with randomized data ─────────────────────────────────
+  // ── Duplicate ─────────────────────────────────────────────────────────────
 
   function randomizeJson(obj) {
-    const SHIFT_DAYS = Math.floor(Math.random() * 60 + 30); // shift 30–90 days back
-    const SHIFT_MS   = SHIFT_DAYS * 24 * 60 * 60 * 1000;
-
+    const SHIFT_MS = (Math.floor(Math.random() * 60 + 30)) * 86400000;
     let json = JSON.stringify(obj);
-
-    // Shift all ISO 8601 timestamps
     json = json.replace(/(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z)/g, match => {
       const d = new Date(match);
       return isNaN(d) ? match : new Date(d.getTime() - SHIFT_MS).toISOString();
     });
-
-    // Regenerate all MongoDB ObjectIds (24 hex chars)
     json = json.replace(/([0-9a-f]{24})/g, () =>
-      Array.from({length: 24}, () => Math.floor(Math.random() * 16).toString(16)).join('')
-    );
-
+      Array.from({length:24}, () => Math.floor(Math.random()*16).toString(16)).join(''));
     return JSON.parse(json);
   }
 
@@ -772,42 +935,108 @@ function parseJsonField(raw, label) {
   }
 
   async function duplicateChallenge(id, allChallenges) {
-    const { data: ch, error } = await _supabase
-      .from('challenges').select('*').eq('id', id).single();
+    const { data: ch, error } = await _supabase.from('challenges').select('*').eq('id', id).single();
     if (error || !ch) { showGlobalAlert('Failed to load challenge.', 'danger'); return; }
 
-    const newId     = suggestVariantId(id, allChallenges);
-    const randomized = randomizeJson({
-      server_logs:       ch.server_logs,
-      mongo_collections: ch.mongo_collections
-    });
+    const newId = suggestVariantId(id, allChallenges);
 
-    // Pre-fill form with duplicated + randomized data
+    // Randomize evidence data
+    const sourceLogFiles = (ch.log_files && ch.log_files.length)
+      ? ch.log_files
+      : [{ filename: ch.server_logs_filename || 'server-logs.json', logs: ch.server_logs || [] }];
+    const randomizedLogFiles = randomizeJson(sourceLogFiles);
+    const randomizedMongo    = randomizeJson(ch.mongo_collections || []);
+
     document.getElementById('form-panel-title').textContent = 'Duplicate of ' + id;
-    document.getElementById('f-edit-id').value   = '';  // new challenge, not an edit
-    document.getElementById('f-id').value        = newId;
-    document.getElementById('f-id').disabled     = false;
-    document.getElementById('f-title').value     = ch.title;
-    document.getElementById('f-scenario').value  = ch.scenario;
-    document.getElementById('f-ticket').value    = ch.ticket_quote;
-    document.getElementById('f-arch').value      = ch.arch_context;
-    document.getElementById('f-red-herrings').value   = JSON.stringify(ch.red_herrings, null, 2);
-    document.getElementById('f-server-logs').value    = JSON.stringify(randomized.server_logs, null, 2);
-    document.getElementById('f-log-filename').value   = ch.server_logs_filename;
-    document.getElementById('f-mongo-collections').value = JSON.stringify(randomized.mongo_collections, null, 2);
-    document.getElementById('f-hints').value    = JSON.stringify(ch.hints, null, 2);
-    document.getElementById('f-questions').value = JSON.stringify(ch.questions, null, 2);
-    document.getElementById('f-variant-group').value = ch.variant_group || '';
-    document.getElementById('f-active').checked  = false; // start inactive until reviewed
-    document.getElementById('btn-save-challenge').textContent = 'Save duplicate';
-    document.getElementById('form-save-feedback').innerHTML  = '';
+    document.getElementById('f-edit-id').value  = '';
+    document.getElementById('f-id').value       = newId;
+    document.getElementById('f-id').disabled    = false;
+    document.getElementById('f-title').value    = ch.title;
+    document.getElementById('f-scenario').value = ch.scenario;
+    document.getElementById('f-ticket').value   = ch.ticket_quote;
+    document.getElementById('f-arch').value     = ch.arch_context;
+    document.getElementById('f-red-herrings').value      = JSON.stringify(ch.red_herrings || [], null, 2);
+    document.getElementById('f-mongo-collections').value = JSON.stringify(randomizedMongo, null, 2);
+    document.getElementById('f-variant-group').value     = ch.variant_group || '';
+    document.getElementById('f-active').checked          = false;
 
-    // Switch to challenges tab and scroll to form
+    renderLogFilesBuilder(randomizedLogFiles);
+    renderScreenshotsBuilder(ch.screenshots || []);
+    renderHintsBuilder(ch.hints || []);
+    renderQuestionsBuilder(ch.questions || []);
+
+    document.getElementById('btn-save-challenge').textContent = 'Save duplicate';
+    document.getElementById('form-save-feedback').innerHTML = '';
+
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === 'challenges'));
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-challenges'));
     document.getElementById('challenge-form-panel').scrollIntoView({ behavior: 'smooth' });
 
-    showGlobalAlert(`Duplicated from ${id} → ${newId}. Timestamps and IDs randomized. Review, edit the company/names, then save.`);
+    showGlobalAlert(`Duplicated ${id} → ${newId}. Timestamps and ObjectIds randomized. Review and swap company/person names before saving.`);
+  }
+
+  // ── Scores ────────────────────────────────────────────────────────────────
+  async function loadScores() {
+    scoresLoaded = true;
+    const [profilesRes, submissionsRes] = await Promise.all([
+      _supabase.from('profiles').select('id, handle, score, theme, created_at').order('score', { ascending: false }),
+      _supabase.from('submissions').select('user_id')
+    ]);
+
+    document.getElementById('scores-loading').style.display = 'none';
+    document.getElementById('scores-table').classList.remove('hidden');
+    if (profilesRes.error) { showGlobalAlert('Failed: ' + profilesRes.error.message, 'danger'); return; }
+
+    const profiles = profilesRes.data || [];
+    const subCountMap = {};
+    (submissionsRes.data || []).forEach(s => { subCountMap[s.user_id] = (subCountMap[s.user_id]||0)+1; });
+
+    const tbody = document.getElementById('scores-tbody');
+    tbody.innerHTML = '';
+    profiles.forEach((p, i) => {
+      const solved    = subCountMap[p.id] || 0;
+      const joined    = new Date(p.created_at).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+      const themeLabel = p.theme === 'sturnus' ? 'STURNUS' : 'V.H.S.';
+      const themeBadge = p.theme === 'sturnus'
+        ? `<span class="badge badge-success">${themeLabel}</span>`
+        : `<span class="badge badge-purple">${themeLabel}</span>`;
+      const newTheme = p.theme === 'sturnus' ? 'vhs' : 'sturnus';
+      const newLabel = p.theme === 'sturnus' ? '→ V.H.S.' : '→ STURNUS';
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="td-mono" style="color:var(--text-muted)">${i+1}</td>
+        <td style="font-weight:600;">${escHtml(p.handle)}</td>
+        <td>${themeBadge} <button class="btn btn-ghost btn-sm btn-switch-theme" data-id="${escHtml(p.id)}" data-handle="${escHtml(p.handle)}" data-theme="${newTheme}" style="font-size:10px;padding:1px 6px;">${newLabel}</button></td>
+        <td class="td-mono" style="color:var(--text-success);font-weight:700;">${p.score.toLocaleString()}</td>
+        <td class="td-mono">${solved}</td>
+        <td class="text-muted text-sm">${joined}</td>
+        <td><button class="btn btn-ghost btn-sm btn-reset-scores" data-id="${escHtml(p.id)}" data-handle="${escHtml(p.handle)}" ${p.score===0&&solved===0?'disabled':''}>Reset</button></td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    tbody.querySelectorAll('.btn-switch-theme').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const { error } = await _supabase.from('profiles').update({ theme: btn.dataset.theme }).eq('id', btn.dataset.id);
+        if (error) { showGlobalAlert('Theme switch failed: ' + error.message, 'danger'); return; }
+        showGlobalAlert(`${btn.dataset.handle} switched to ${btn.dataset.theme === 'vhs' ? 'V.H.S.' : 'STURNUS'}.`);
+        scoresLoaded = false; await loadScores();
+      });
+    });
+
+    tbody.querySelectorAll('.btn-reset-scores').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!confirm(`Reset all scores for "${btn.dataset.handle}"? Cannot be undone.`)) return;
+        btn.disabled = true; btn.textContent = '…';
+        const { data, error } = await _supabase.rpc('reset_user_scores', { p_user_id: btn.dataset.id });
+        if (error || !data?.success) {
+          showGlobalAlert(data?.error || error?.message || 'Reset failed', 'danger');
+          btn.disabled = false; btn.textContent = 'Reset'; return;
+        }
+        showGlobalAlert(`${btn.dataset.handle} reset to 0 pts.`);
+        scoresLoaded = false; await loadScores();
+      });
+    });
   }
 
   document.getElementById('btn-refresh-scores').addEventListener('click', () => {
@@ -817,48 +1046,38 @@ function parseJsonField(raw, label) {
     loadScores();
   });
 
-  // ── Reflections ───────────────────────────────────────────────────────────────
-
-  const STARS = ['', '★☆☆☆☆', '★★☆☆☆', '★★★☆☆', '★★★★☆', '★★★★★'];
-  const DIFF_LABELS = ['', 'Very easy', 'Easy', 'About right', 'Hard', 'Very hard'];
+  // ── Reflections ───────────────────────────────────────────────────────────
+  const STARS       = ['','★☆☆☆☆','★★☆☆☆','★★★☆☆','★★★★☆','★★★★★'];
+  const DIFF_LABELS = ['','Very easy','Easy','About right','Hard','Very hard'];
 
   async function loadReflections() {
     reflectionsLoaded = true;
-
     const [subsRes, profilesRes] = await Promise.all([
-      _supabase.from('submissions')
-        .select('user_id, challenge_id, reflection, difficulty_rating, completed_at')
-        .not('reflection', 'is', null)
-        .order('completed_at', { ascending: false }),
+      _supabase.from('submissions').select('user_id, challenge_id, reflection, difficulty_rating, completed_at')
+        .not('reflection', 'is', null).order('completed_at', { ascending: false }),
       _supabase.from('profiles').select('id, handle')
     ]);
 
     document.getElementById('reflections-loading').style.display = 'none';
-
-    const subs     = subsRes.data || [];
-    const profiles = profilesRes.data || [];
     const handleById = {};
-    profiles.forEach(p => { handleById[p.id] = p.handle; });
-
-    const withReflections = subs.filter(s => s.reflection && s.reflection.trim());
+    (profilesRes.data || []).forEach(p => { handleById[p.id] = p.handle; });
+    const withReflections = (subsRes.data || []).filter(s => s.reflection?.trim());
 
     if (!withReflections.length) {
-      document.getElementById('reflections-empty').classList.remove('hidden');
-      return;
+      document.getElementById('reflections-empty').classList.remove('hidden'); return;
     }
 
     const table = document.getElementById('reflections-table');
     table.classList.remove('hidden');
     const tbody = document.getElementById('reflections-tbody');
     tbody.innerHTML = '';
-
     withReflections.forEach(s => {
-      const tr = document.createElement('tr');
       const date = new Date(s.completed_at).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' });
+      const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td style="font-weight:600;">${escHtml(handleById[s.user_id] || '—')}</td>
+        <td style="font-weight:600;">${escHtml(handleById[s.user_id]||'—')}</td>
         <td class="td-mono">${escHtml(s.challenge_id)}</td>
-        <td title="${DIFF_LABELS[s.difficulty_rating] || ''}" style="color:var(--text-warning);font-family:var(--font-mono);font-size:12px;">${STARS[s.difficulty_rating] || '—'}</td>
+        <td title="${DIFF_LABELS[s.difficulty_rating]||''}" style="color:var(--text-warning);font-family:var(--font-mono);font-size:12px;">${STARS[s.difficulty_rating]||'—'}</td>
         <td style="font-size:13px;max-width:400px;">${escHtml(s.reflection)}</td>
         <td class="text-muted text-sm">${date}</td>
       `;
