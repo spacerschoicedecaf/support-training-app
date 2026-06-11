@@ -153,8 +153,9 @@
   <div class="tabs">
     <button class="tab-btn active" data-tab="invite">Invite Users</button>
     <button class="tab-btn" data-tab="challenges">Challenges</button>
-    <button class="tab-btn" data-tab="scores">All Scores</button>
+    <button class="tab-btn" data-tab="users">All Users</button>
     <button class="tab-btn" data-tab="reflections">Reflections</button>
+    <button class="tab-btn" data-tab="analytics">Analytics</button>
   </div>
 
   <!-- ── Tab: Invite ─────────────────────────────────────────────────────── -->
@@ -326,11 +327,11 @@
     </div>
   </div>
 
-  <!-- ── Tab: Scores ─────────────────────────────────────────────────────── -->
-  <div id="tab-scores" class="tab-panel">
+  <!-- ── Tab: Users ──────────────────────────────────────────────────────── -->
+  <div id="tab-users" class="tab-panel">
     <div class="card">
       <div class="card-header">
-        <h2>All Scores &amp; Submissions</h2>
+        <h2>All Users</h2>
         <button class="btn btn-ghost btn-sm" id="btn-refresh-scores">↻ Refresh</button>
       </div>
       <div class="table-wrap">
@@ -343,6 +344,35 @@
           </thead>
           <tbody id="scores-tbody"></tbody>
         </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Tab: Analytics ────────────────────────────────────────────────── -->
+  <div id="tab-analytics" class="tab-panel">
+    <div class="card">
+      <div class="card-header">
+        <h2>Challenge Analytics</h2>
+        <button class="btn btn-ghost btn-sm" id="btn-refresh-analytics">↻ Refresh</button>
+      </div>
+      <div class="table-wrap">
+        <div id="analytics-loading" class="loading-state"><div class="spinner"></div></div>
+        <table id="analytics-table" class="hidden">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Title</th>
+              <th>Attempts</th>
+              <th>Solves</th>
+              <th>Solve rate</th>
+              <th>Avg score</th>
+              <th>Avg hints pts</th>
+              <th>Avg time</th>
+            </tr>
+          </thead>
+          <tbody id="analytics-tbody"></tbody>
+        </table>
+        <div id="analytics-empty" class="hidden loading-state text-muted" style="font-size:12px;">No data yet.</div>
       </div>
     </div>
   </div>
@@ -623,15 +653,16 @@ function renumberList(listId, labelPrefix) {
   // ── Tabs ──────────────────────────────────────────────────────────────────
   const tabBtns  = document.querySelectorAll('.tab-btn');
   const tabPanels = document.querySelectorAll('.tab-panel');
-  let scoresLoaded = false, challengesLoaded = false, reflectionsLoaded = false;
+  let scoresLoaded = false, challengesLoaded = false, reflectionsLoaded = false, analyticsLoaded = false;
 
   tabBtns.forEach(btn => {
     btn.addEventListener('click', () => {
       tabBtns.forEach(b => b.classList.toggle('active', b === btn));
       tabPanels.forEach(p => p.classList.toggle('active', p.id === `tab-${btn.dataset.tab}`));
-      if (btn.dataset.tab === 'scores'      && !scoresLoaded)      loadScores();
+      if (btn.dataset.tab === 'users'        && !scoresLoaded)      loadScores();
       if (btn.dataset.tab === 'challenges'  && !challengesLoaded)  loadChallenges();
       if (btn.dataset.tab === 'reflections' && !reflectionsLoaded) loadReflections();
+      if (btn.dataset.tab === 'analytics'   && !analyticsLoaded)  loadAnalytics();
     });
   });
 
@@ -1078,6 +1109,56 @@ function renumberList(listId, labelPrefix) {
   // ── Reflections ───────────────────────────────────────────────────────────
   const STARS       = ['','★☆☆☆☆','★★☆☆☆','★★★☆☆','★★★★☆','★★★★★'];
   const DIFF_LABELS = ['','Very easy','Easy','About right','Hard','Very hard'];
+
+  async function loadAnalytics() {
+    analyticsLoaded = true;
+    const loadingEl = document.getElementById('analytics-loading');
+    const tableEl   = document.getElementById('analytics-table');
+    const tbodyEl   = document.getElementById('analytics-tbody');
+    const emptyEl   = document.getElementById('analytics-empty');
+
+    loadingEl.style.display = 'flex';
+    tableEl.classList.add('hidden');
+    emptyEl.classList.add('hidden');
+
+    const { data, error } = await _supabase.rpc('get_challenge_analytics');
+    loadingEl.style.display = 'none';
+
+    if (error || !data) {
+      showGlobalAlert('Failed to load analytics: ' + (error?.message || 'unknown error'), 'danger');
+      return;
+    }
+
+    const rows = Array.isArray(data) ? data : [];
+    if (!rows.length) { emptyEl.classList.remove('hidden'); return; }
+
+    tbodyEl.innerHTML = '';
+    rows.forEach(r => {
+      const tr = document.createElement('tr');
+      const solveRate = r.solve_rate_pct != null ? r.solve_rate_pct + '%' : '—';
+      const avgScore  = r.avg_score      != null ? r.avg_score           : '—';
+      const avgHints  = r.avg_hints_cost != null ? r.avg_hints_cost      : '—';
+      const avgTime   = r.avg_solve_min  != null ? r.avg_solve_min + 'm' : '—';
+      tr.innerHTML = `
+        <td class="td-mono">${escHtml(r.id)}</td>
+        <td>${escHtml(r.title)}</td>
+        <td>${r.attempt_count}</td>
+        <td>${r.solve_count}</td>
+        <td>${solveRate}</td>
+        <td>${avgScore}</td>
+        <td>${avgHints}</td>
+        <td>${avgTime}</td>
+      `;
+      tbodyEl.appendChild(tr);
+    });
+
+    tableEl.classList.remove('hidden');
+  }
+
+  document.getElementById('btn-refresh-analytics').addEventListener('click', () => {
+    analyticsLoaded = false;
+    loadAnalytics();
+  });
 
   async function loadReflections() {
     reflectionsLoaded = true;

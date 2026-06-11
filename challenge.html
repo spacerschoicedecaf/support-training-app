@@ -505,6 +505,16 @@ function qsAll(s) { return document.querySelectorAll(s); }
   let   hintsCost   = (hintsRes.data || []).reduce((s, h) => s + h.cost, 0);
   let   submitted   = !!submission;
 
+  // ── Time-to-solve tracking ────────────────────────────────────────────────
+  // Record start time in JS (used for debrief display after submission)
+  const pageLoadTime = Date.now();
+
+  // Tell the DB this user has started — INSERT ... ON CONFLICT DO NOTHING,
+  // so it only sets started_at on the very first visit
+  if (!submitted) {
+    _supabase.rpc('record_challenge_start', { p_challenge_id: ch.id }); // fire-and-forget
+  }
+
   // ── Populate static content ────────────────────────────────────────────────
 
   qs('#page-content').classList.remove('hidden');
@@ -905,7 +915,8 @@ function qsAll(s) { return document.querySelectorAll(s); }
       updateScorePreview();
     }
 
-    showDebrief(data.graded, data.score_earned);
+    const solveMs = Date.now() - pageLoadTime;
+    showDebrief(data.graded, data.score_earned, solveMs);
     if (data.first_blood) showGlobalAlert('Initial Response — you solved this case before anyone else.');
     initReflection(null, null);
   });
@@ -971,7 +982,7 @@ function qsAll(s) { return document.querySelectorAll(s); }
     qs('#star-label').textContent = starLabels[val] || '—';
   }
 
-  function showDebrief(graded, scoreEarned) {
+  function showDebrief(graded, scoreEarned, solveMs) {
     const panel = qs('#debrief-panel');
     const body  = qs('#debrief-body');
     panel.classList.add('visible');
@@ -999,6 +1010,20 @@ function qsAll(s) { return document.querySelectorAll(s); }
       row.innerHTML = `
         <span class="debrief-row-label">Hint penalty</span>
         <span class="debrief-row-result wrong">−${hintsCost} pts</span>
+      `;
+      body.appendChild(row);
+    }
+
+    // Time-to-solve row (only on fresh submission, not re-view)
+    if (solveMs != null) {
+      const mins = Math.floor(solveMs / 60000);
+      const secs = Math.floor((solveMs % 60000) / 1000);
+      const timeStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+      const row = document.createElement('div');
+      row.className = 'debrief-row';
+      row.innerHTML = `
+        <span class="debrief-row-label">Time to solve</span>
+        <span class="debrief-row-result" style="color:var(--text-secondary);">${timeStr}</span>
       `;
       body.appendChild(row);
     }
