@@ -121,7 +121,7 @@ pre, code, kbd {
 
 .nav-brand-icon {
   width: 20px;
-  height: 16px;
+  height: auto;
   flex-shrink: 0;
 }
 

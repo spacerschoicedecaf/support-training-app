@@ -2,37 +2,25 @@
 // Loaded on every page before auth.js.
 // applyTheme(themeName) is called by auth.js after the profile loads.
 
+// ── Shared pixel-art rect strings ─────────────────────────────────────────────
+
+// STURNUS bird — 20×14 grid, matches favicon-sturnus.svg exactly
+const BIRD_RECTS = '<rect x="5" y="0" width="5" height="1"/><rect x="4" y="1" width="7" height="1"/><rect x="2" y="2" width="5" height="1"/><rect x="8" y="2" width="4" height="1"/><rect x="1" y="3" width="12" height="1"/><rect x="2" y="4" width="14" height="1"/><rect x="3" y="5" width="15" height="1"/><rect x="4" y="6" width="15" height="1"/><rect x="4" y="7" width="15" height="1"/><rect x="4" y="8" width="12" height="1"/><rect x="5" y="9" width="8" height="1"/><rect x="6" y="10" width="5" height="1"/><rect x="7" y="11" width="1" height="1"/><rect x="10" y="11" width="1" height="1"/><rect x="7" y="12" width="1" height="1"/><rect x="10" y="12" width="1" height="1"/><rect x="6" y="13" width="3" height="1"/><rect x="10" y="13" width="2" height="1"/>';
+
+// VHS cassette — 20×13 grid, matches favicon-vhs.svg exactly
+const VHS_RECTS = '<rect x="0" y="0" width="20" height="1"/><rect x="0" y="1" width="1" height="1"/><rect x="19" y="1" width="1" height="1"/><rect x="0" y="2" width="1" height="1"/><rect x="19" y="2" width="1" height="1"/><rect x="0" y="3" width="1" height="1"/><rect x="2" y="3" width="4" height="1"/><rect x="12" y="3" width="4" height="1"/><rect x="19" y="3" width="1" height="1"/><rect x="0" y="4" width="1" height="1"/><rect x="2" y="4" width="1" height="1"/><rect x="5" y="4" width="1" height="1"/><rect x="12" y="4" width="1" height="1"/><rect x="15" y="4" width="1" height="1"/><rect x="19" y="4" width="1" height="1"/><rect x="0" y="5" width="1" height="1"/><rect x="2" y="5" width="1" height="1"/><rect x="5" y="5" width="1" height="1"/><rect x="12" y="5" width="1" height="1"/><rect x="15" y="5" width="1" height="1"/><rect x="19" y="5" width="1" height="1"/><rect x="0" y="6" width="1" height="1"/><rect x="2" y="6" width="4" height="1"/><rect x="12" y="6" width="4" height="1"/><rect x="19" y="6" width="1" height="1"/><rect x="0" y="7" width="1" height="1"/><rect x="19" y="7" width="1" height="1"/><rect x="0" y="8" width="1" height="1"/><rect x="19" y="8" width="1" height="1"/><rect x="0" y="9" width="20" height="1"/><rect x="2" y="10" width="16" height="1"/><rect x="2" y="11" width="16" height="1"/><rect x="4" y="12" width="12" height="1"/>';
+
 const THEMES = {
 
   sturnus: {
     name:     'STURNUS',
     subtitle: 'Technical Support Training',
 
-    // Inline SVG for nav (uses currentColor → inherits amber from .nav-brand)
-    navIcon: `<svg class="nav-brand-icon" viewBox="0 0 10 8" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-      <rect x="3" y="0" width="3" height="1"/>
-      <rect x="2" y="1" width="5" height="1"/>
-      <rect x="1" y="2" width="5" height="1"/>
-      <rect x="0" y="3" width="6" height="1"/>
-      <rect x="1" y="4" width="9" height="1"/>
-      <rect x="1" y="5" width="8" height="1"/>
-      <rect x="2" y="6" width="5" height="1"/>
-      <rect x="3" y="7" width="1" height="1"/>
-      <rect x="5" y="7" width="1" height="1"/>
-    </svg>`,
+    // Nav icon: currentColor inherits from .nav-brand, crispEdges for pixel-perfect render
+    navIcon: `<svg class="nav-brand-icon" viewBox="0 0 20 14" fill="currentColor" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg">${BIRD_RECTS}</svg>`,
 
-    // Larger version for auth card (hardcoded green)
-    authIcon: `<svg viewBox="0 0 10 8" width="30" height="24" fill="#8fbc5a" xmlns="http://www.w3.org/2000/svg">
-      <rect x="3" y="0" width="3" height="1"/>
-      <rect x="2" y="1" width="5" height="1"/>
-      <rect x="1" y="2" width="5" height="1"/>
-      <rect x="0" y="3" width="6" height="1"/>
-      <rect x="1" y="4" width="9" height="1"/>
-      <rect x="1" y="5" width="8" height="1"/>
-      <rect x="2" y="6" width="5" height="1"/>
-      <rect x="3" y="7" width="1" height="1"/>
-      <rect x="5" y="7" width="1" height="1"/>
-    </svg>`,
+    // Auth card logo: hardcoded brand green, explicit px dimensions
+    authIcon: `<svg viewBox="0 0 20 14" width="30" height="21" fill="#8fbc5a" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg">${BIRD_RECTS}</svg>`,
 
     // No CSS variable overrides — app.css defaults are the STURNUS theme
     vars: {}
@@ -42,26 +30,9 @@ const THEMES = {
     name:     'V.H.S.',
     subtitle: 'Virtual Helpdesk Simulator',
 
-    // VHS cassette pixel art — front view with two reels and tape slot
-    navIcon: `<svg class="nav-brand-icon" viewBox="0 0 12 8" width="22" height="15" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-      <rect x="0" y="0" width="12" height="1"/>
-      <rect x="0" y="1" width="1" height="3"/>
-      <rect x="11" y="1" width="1" height="3"/>
-      <rect x="2" y="2" width="3" height="2"/>
-      <rect x="7" y="2" width="3" height="2"/>
-      <rect x="0" y="5" width="12" height="1"/>
-      <rect x="2" y="6" width="8" height="2"/>
-    </svg>`,
+    navIcon: `<svg class="nav-brand-icon" viewBox="0 0 20 13" fill="currentColor" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg">${VHS_RECTS}</svg>`,
 
-    authIcon: `<svg viewBox="0 0 12 8" width="36" height="24" fill="#e040fb" xmlns="http://www.w3.org/2000/svg">
-      <rect x="0" y="0" width="12" height="1"/>
-      <rect x="0" y="1" width="1" height="3"/>
-      <rect x="11" y="1" width="1" height="3"/>
-      <rect x="2" y="2" width="3" height="2"/>
-      <rect x="7" y="2" width="3" height="2"/>
-      <rect x="0" y="5" width="12" height="1"/>
-      <rect x="2" y="6" width="8" height="2"/>
-    </svg>`,
+    authIcon: `<svg viewBox="0 0 20 13" width="30" height="20" fill="#e040fb" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg">${VHS_RECTS}</svg>`,
 
     // 80s video store palette — neon magenta + cyan on deep purple-black
     vars: {
@@ -118,17 +89,17 @@ function applyTheme(themeName) {
   // 3. Remove loading flag — nav brand becomes visible
   delete root.dataset.themeLoading;
 
-  // 2. Nav brand icon (replace the wrapper contents)
+  // 4. Nav brand icon (replace the wrapper contents)
   document.querySelectorAll('.nav-brand-icon-wrap').forEach(el => {
     el.innerHTML = t.navIcon;
   });
 
-  // 3. Nav brand name
+  // 5. Nav brand name
   document.querySelectorAll('.nav-brand-name').forEach(el => {
     el.textContent = t.name;
   });
 
-  // 4. Auth card logo (login / profile pages)
+  // 6. Auth card logo (login / profile pages)
   const authIcon = document.querySelector('.auth-logo-icon');
   if (authIcon) authIcon.innerHTML = t.authIcon;
 
@@ -138,9 +109,9 @@ function applyTheme(themeName) {
   const authSub = document.querySelector('.auth-logo-sub');
   if (authSub && t.subtitle) authSub.textContent = t.subtitle;
 
-  // 5. Page title
+  // 7. Page title
   document.title = document.title.replace(/STURNUS|V\.H\.S\./g, t.name);
 
-  // 6. Persist in localStorage so login page can apply the right theme on return
+  // 8. Persist in localStorage so login page can apply the right theme on return
   try { localStorage.setItem('lastTheme', themeName); } catch(e) {}
 }
