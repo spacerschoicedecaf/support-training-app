@@ -519,13 +519,13 @@ function qsAll(s) { return document.querySelectorAll(s); }
   const existingNote = noteRes?.data?.note_text || '';
 
   // ── Time-to-solve tracking ────────────────────────────────────────────────
-  // Record start time in JS (used for debrief display after submission)
-  const pageLoadTime = Date.now();
+  // Use DB-persisted started_at so timer survives page navigation / snack breaks.
+  // Falls back to Date.now() if the RPC fails or user is already submitted.
+  let pageLoadTime = Date.now();
 
-  // Tell the DB this user has started — INSERT ... ON CONFLICT DO NOTHING,
-  // so it only sets started_at on the very first visit
   if (!submitted) {
-    _supabase.rpc('record_challenge_start', { p_challenge_id: ch.id }); // fire-and-forget
+    const { data: startedAt } = await _supabase.rpc('record_challenge_start', { p_challenge_id: ch.id });
+    if (startedAt) pageLoadTime = new Date(startedAt).getTime();
   }
 
   // ── Populate static content ────────────────────────────────────────────────
