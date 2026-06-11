@@ -52,7 +52,7 @@
 
     /* ── Shortcuts modal ──────────────────────────────────────────────────── */
     .shortcuts-modal-backdrop {
-      position: fixed; inset: 0; background: rgba(0,0,0,.88);
+      position: fixed; inset: 0; background: rgba(0,0,0,.55);
       display: flex; align-items: center; justify-content: center;
       z-index: 1000; opacity: 0; pointer-events: none;
       transition: opacity .15s;
@@ -228,7 +228,7 @@
             <textarea
               id="mongo-query"
               rows="2"
-              placeholder=""
+              placeholder="show collections"
               spellcheck="false"
             ></textarea>
           </div>
@@ -337,11 +337,11 @@
 </div>
 
 <!-- ── Keyboard Shortcuts Modal ──────────────────────────────────────────── -->
-<div class="shortcuts-modal-backdrop" id="shortcuts-modal" role="dialog" aria-modal="true" aria-labelledby="shortcuts-modal-title">
-  <div class="shortcuts-modal" tabindex="-1" style="outline:none;">
+<div class="shortcuts-modal-backdrop" id="shortcuts-modal">
+  <div class="shortcuts-modal">
     <div class="shortcuts-modal-header">
-      <h3 id="shortcuts-modal-title">Keyboard shortcuts</h3>
-      <button class="modal-close" id="close-shortcuts-modal" aria-label="Close keyboard shortcuts">×</button>
+      <h3>Keyboard shortcuts</h3>
+      <button class="modal-close" id="close-shortcuts-modal" title="Close">×</button>
     </div>
     <div class="shortcuts-modal-body">
       <div>
@@ -504,16 +504,6 @@ function qsAll(s) { return document.querySelectorAll(s); }
   const unlockedSet = new Set((hintsRes.data || []).map(h => h.hint_index));
   let   hintsCost   = (hintsRes.data || []).reduce((s, h) => s + h.cost, 0);
   let   submitted   = !!submission;
-
-  // ── Time-to-solve tracking ────────────────────────────────────────────────
-  // Record start time in JS (used for debrief display after submission)
-  const pageLoadTime = Date.now();
-
-  // Tell the DB this user has started — INSERT ... ON CONFLICT DO NOTHING,
-  // so it only sets started_at on the very first visit
-  if (!submitted) {
-    _supabase.rpc('record_challenge_start', { p_challenge_id: ch.id }); // fire-and-forget
-  }
 
   // ── Populate static content ────────────────────────────────────────────────
 
@@ -915,8 +905,7 @@ function qsAll(s) { return document.querySelectorAll(s); }
       updateScorePreview();
     }
 
-    const solveMs = Date.now() - pageLoadTime;
-    showDebrief(data.graded, data.score_earned, solveMs);
+    showDebrief(data.graded, data.score_earned);
     if (data.first_blood) showGlobalAlert('Initial Response — you solved this case before anyone else.');
     initReflection(null, null);
   });
@@ -982,7 +971,7 @@ function qsAll(s) { return document.querySelectorAll(s); }
     qs('#star-label').textContent = starLabels[val] || '—';
   }
 
-  function showDebrief(graded, scoreEarned, solveMs) {
+  function showDebrief(graded, scoreEarned) {
     const panel = qs('#debrief-panel');
     const body  = qs('#debrief-body');
     panel.classList.add('visible');
@@ -1010,20 +999,6 @@ function qsAll(s) { return document.querySelectorAll(s); }
       row.innerHTML = `
         <span class="debrief-row-label">Hint penalty</span>
         <span class="debrief-row-result wrong">−${hintsCost} pts</span>
-      `;
-      body.appendChild(row);
-    }
-
-    // Time-to-solve row (only on fresh submission, not re-view)
-    if (solveMs != null) {
-      const mins = Math.floor(solveMs / 60000);
-      const secs = Math.floor((solveMs % 60000) / 1000);
-      const timeStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
-      const row = document.createElement('div');
-      row.className = 'debrief-row';
-      row.innerHTML = `
-        <span class="debrief-row-label">Time to solve</span>
-        <span class="debrief-row-result" style="color:var(--text-secondary);">${timeStr}</span>
       `;
       body.appendChild(row);
     }
@@ -1365,34 +1340,11 @@ function qsAll(s) { return document.querySelectorAll(s); }
 
   // ── Shortcuts modal ────────────────────────────────────────────────────────
   const shortcutsModal = qs('#shortcuts-modal');
-  let shortcutsTrigger = null; // element that opened the modal, restored on close
 
-  function openShortcuts(trigger) {
-    shortcutsTrigger = trigger || document.activeElement;
-    shortcutsModal.classList.add('open');
-    // Focus the modal container — no visible ring, but screen readers land here and read the title
-    const modalEl = shortcutsModal.querySelector('.shortcuts-modal');
-    if (modalEl) modalEl.focus();
-  }
+  function openShortcuts()  { shortcutsModal.classList.add('open'); }
+  function closeShortcuts() { shortcutsModal.classList.remove('open'); }
 
-  function closeShortcuts() {
-    shortcutsModal.classList.remove('open');
-    // Return focus to trigger
-    if (shortcutsTrigger) { shortcutsTrigger.focus(); shortcutsTrigger = null; }
-  }
-
-  // Focus trap: keep Tab inside the modal while open
-  shortcutsModal.addEventListener('keydown', e => {
-    if (!shortcutsModal.classList.contains('open')) return;
-    if (e.key !== 'Tab') return;
-    const focusable = [...shortcutsModal.querySelectorAll('button, [href], input, [tabindex]:not([tabindex="-1"])')];
-    if (!focusable.length) return;
-    const first = focusable[0], last = focusable[focusable.length - 1];
-    if (e.shiftKey) { if (document.activeElement === first) { e.preventDefault(); last.focus(); } }
-    else            { if (document.activeElement === last)  { e.preventDefault(); first.focus(); } }
-  });
-
-  qs('#btn-shortcuts').addEventListener('click', () => openShortcuts(qs('#btn-shortcuts')));
+  qs('#btn-shortcuts').addEventListener('click', openShortcuts);
   qs('#close-shortcuts-modal').addEventListener('click', closeShortcuts);
   shortcutsModal.addEventListener('click', e => { if (e.target === shortcutsModal) closeShortcuts(); });
 
