@@ -307,6 +307,17 @@
         </div>
       </div>
 
+      <!-- Private notes -->
+      <div class="card" id="notes-panel">
+        <div class="card-header">
+          <h2>My Notes</h2>
+          <span class="text-muted text-sm" id="notes-saved-label" style="font-size:11px;"></span>
+        </div>
+        <div class="card-body" style="padding:12px;">
+          <textarea id="notes-text" rows="5" placeholder="Private notes — only visible to you." style="width:100%;font-family:var(--font-sans);font-size:13px;resize:vertical;"></textarea>
+        </div>
+      </div>
+
       <a href="index.html" class="btn btn-ghost btn-sm" style="text-align:center;">← Back to challenges</a>
 
     </div><!-- /right col -->
@@ -427,11 +438,12 @@ function qsAll(s) { return document.querySelectorAll(s); }
 
   if (!challengeId) { showError(); return; }
 
-  // Load challenge + user's existing submission + unlocked hints
-  const [chRes, subRes, hintsRes] = await Promise.all([
+  // Load challenge + user's existing submission + unlocked hints + existing note
+  const [chRes, subRes, hintsRes, noteRes] = await Promise.all([
     _supabase.from('challenges').select('*').eq('id', challengeId).eq('active', true).single(),
     _supabase.from('submissions').select('answers, score_earned, hints_cost, reflection, difficulty_rating').eq('user_id', ctx.user.id).eq('challenge_id', challengeId).maybeSingle(),
-    _supabase.from('hint_unlocks').select('*').eq('user_id', ctx.user.id).eq('challenge_id', challengeId)
+    _supabase.from('hint_unlocks').select('*').eq('user_id', ctx.user.id).eq('challenge_id', challengeId),
+    _supabase.from('challenge_notes').select('note_text').eq('user_id', ctx.user.id).eq('challenge_id', challengeId).maybeSingle()
   ]);
 
   qs('#page-loading').style.display = 'none';
@@ -504,6 +516,7 @@ function qsAll(s) { return document.querySelectorAll(s); }
   const unlockedSet = new Set((hintsRes.data || []).map(h => h.hint_index));
   let   hintsCost   = (hintsRes.data || []).reduce((s, h) => s + h.cost, 0);
   let   submitted   = !!submission;
+  const existingNote = noteRes?.data?.note_text || '';
 
   // ── Time-to-solve tracking ────────────────────────────────────────────────
   // Record start time in JS (used for debrief display after submission)
@@ -878,6 +891,9 @@ function qsAll(s) { return document.querySelectorAll(s); }
   let selectedRating = 0;
   const starLabels = ['', 'Very easy', 'Easy', 'About right', 'Hard', 'Very hard'];
 
+  // ── Private notes ──────────────────────────────────────────────────────────
+  initNotes(existingNote);
+
   // If already fully submitted show debrief + reflection
   if (submitted && submission) {
     showDebrief(submission.answers || [], submission.score_earned);
@@ -925,6 +941,41 @@ function qsAll(s) { return document.querySelectorAll(s); }
     if (data.first_blood) showGlobalAlert('Initial Response — you solved this case before anyone else.');
     initReflection(null, null);
   });
+
+  // ── Private notes ──────────────────────────────────────────────────────────
+
+  function initNotes(initialText) {
+    const textarea  = qs('#notes-text');
+    const statusEl  = qs('#notes-saved-label');
+    if (!textarea) return;
+
+    textarea.value = initialText || '';
+
+    let saveTimer = null;
+
+    async function saveNote() {
+      const text = textarea.value;
+      statusEl.textContent = 'Saving…';
+      const { error } = await _supabase.rpc('save_challenge_note', {
+        p_challenge_id: challengeId,
+        p_note_text:    text
+      });
+      if (error) {
+        statusEl.textContent = 'Save failed';
+        statusEl.style.color = 'var(--error, #e06c75)';
+      } else {
+        statusEl.textContent = 'Saved';
+        statusEl.style.color = 'var(--text-muted)';
+        setTimeout(() => { statusEl.textContent = ''; }, 2000);
+      }
+    }
+
+    textarea.addEventListener('input', () => {
+      clearTimeout(saveTimer);
+      statusEl.textContent = '…';
+      saveTimer = setTimeout(saveNote, 1200);
+    });
+  }
 
   // ── Post-solve reflection ───────────────────────────────────────────────────
 
