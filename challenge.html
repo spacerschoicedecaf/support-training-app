@@ -337,11 +337,11 @@
 </div>
 
 <!-- ── Keyboard Shortcuts Modal ──────────────────────────────────────────── -->
-<div class="shortcuts-modal-backdrop" id="shortcuts-modal">
+<div class="shortcuts-modal-backdrop" id="shortcuts-modal" role="dialog" aria-modal="true" aria-labelledby="shortcuts-modal-title">
   <div class="shortcuts-modal">
     <div class="shortcuts-modal-header">
-      <h3>Keyboard shortcuts</h3>
-      <button class="modal-close" id="close-shortcuts-modal" title="Close">×</button>
+      <h3 id="shortcuts-modal-title">Keyboard shortcuts</h3>
+      <button class="modal-close" id="close-shortcuts-modal" aria-label="Close keyboard shortcuts">×</button>
     </div>
     <div class="shortcuts-modal-body">
       <div>
@@ -1340,11 +1340,34 @@ function qsAll(s) { return document.querySelectorAll(s); }
 
   // ── Shortcuts modal ────────────────────────────────────────────────────────
   const shortcutsModal = qs('#shortcuts-modal');
+  let shortcutsTrigger = null; // element that opened the modal, restored on close
 
-  function openShortcuts()  { shortcutsModal.classList.add('open'); }
-  function closeShortcuts() { shortcutsModal.classList.remove('open'); }
+  function openShortcuts(trigger) {
+    shortcutsTrigger = trigger || document.activeElement;
+    shortcutsModal.classList.add('open');
+    // Move focus into modal
+    const firstFocusable = shortcutsModal.querySelector('button, [href], input, [tabindex]:not([tabindex="-1"])');
+    if (firstFocusable) firstFocusable.focus();
+  }
 
-  qs('#btn-shortcuts').addEventListener('click', openShortcuts);
+  function closeShortcuts() {
+    shortcutsModal.classList.remove('open');
+    // Return focus to trigger
+    if (shortcutsTrigger) { shortcutsTrigger.focus(); shortcutsTrigger = null; }
+  }
+
+  // Focus trap: keep Tab inside the modal while open
+  shortcutsModal.addEventListener('keydown', e => {
+    if (!shortcutsModal.classList.contains('open')) return;
+    if (e.key !== 'Tab') return;
+    const focusable = [...shortcutsModal.querySelectorAll('button, [href], input, [tabindex]:not([tabindex="-1"])')];
+    if (!focusable.length) return;
+    const first = focusable[0], last = focusable[focusable.length - 1];
+    if (e.shiftKey) { if (document.activeElement === first) { e.preventDefault(); last.focus(); } }
+    else            { if (document.activeElement === last)  { e.preventDefault(); first.focus(); } }
+  });
+
+  qs('#btn-shortcuts').addEventListener('click', () => openShortcuts(qs('#btn-shortcuts')));
   qs('#close-shortcuts-modal').addEventListener('click', closeShortcuts);
   shortcutsModal.addEventListener('click', e => { if (e.target === shortcutsModal) closeShortcuts(); });
 
