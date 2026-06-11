@@ -52,7 +52,7 @@
 
     /* ── Shortcuts modal ──────────────────────────────────────────────────── */
     .shortcuts-modal-backdrop {
-      position: fixed; inset: 0; background: rgba(0,0,0,.8);
+      position: fixed; inset: 0; background: rgba(0,0,0,.88);
       display: flex; align-items: center; justify-content: center;
       z-index: 1000; opacity: 0; pointer-events: none;
       transition: opacity .15s;
@@ -338,7 +338,7 @@
 
 <!-- ── Keyboard Shortcuts Modal ──────────────────────────────────────────── -->
 <div class="shortcuts-modal-backdrop" id="shortcuts-modal" role="dialog" aria-modal="true" aria-labelledby="shortcuts-modal-title">
-  <div class="shortcuts-modal">
+  <div class="shortcuts-modal" tabindex="-1" style="outline:none;">
     <div class="shortcuts-modal-header">
       <h3 id="shortcuts-modal-title">Keyboard shortcuts</h3>
       <button class="modal-close" id="close-shortcuts-modal" aria-label="Close keyboard shortcuts">×</button>
@@ -1345,9 +1345,9 @@ function qsAll(s) { return document.querySelectorAll(s); }
   function openShortcuts(trigger) {
     shortcutsTrigger = trigger || document.activeElement;
     shortcutsModal.classList.add('open');
-    // Move focus into modal
-    const firstFocusable = shortcutsModal.querySelector('button, [href], input, [tabindex]:not([tabindex="-1"])');
-    if (firstFocusable) firstFocusable.focus();
+    // Focus the modal container — no visible ring, but screen readers land here and read the title
+    const modalEl = shortcutsModal.querySelector('.shortcuts-modal');
+    if (modalEl) modalEl.focus();
   }
 
   function closeShortcuts() {
