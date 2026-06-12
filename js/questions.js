@@ -173,7 +173,16 @@ export function initQuestions({ challenge, ctx, getSubmitted, submission, getHin
         : s.selected
     }));
 
-    await onSubmitClick(answers);
+    try {
+      await onSubmitClick(answers);
+      // Hide button on success (getSubmitted() is now true)
+      if (getSubmitted()) btnSubmitAll.style.display = 'none';
+    } catch (err) {
+      console.error('Submit error:', err);
+      btnSubmitAll.disabled  = false;
+      btnSubmitAll.textContent = 'Submit all answers';
+      alert('Something went wrong — please try again.');
+    }
   });
 
   // ── Debrief ───────────────────────────────────────────────────────────────
