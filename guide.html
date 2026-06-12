@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Guide — STURNUS</title>
+  <link rel="stylesheet" href="css/app.css">
+  <link id="theme-css" rel="stylesheet" href="">
+  <script>(function(){try{var d=(window.location.hostname.includes("vhs")||window.location.hostname.endsWith("bekind.support"))?"vhs":"sturnus";var t=localStorage.getItem("lastTheme")||d;if(t==="vhs")document.getElementById("theme-css").href="css/theme-vhs.css";document.documentElement.dataset.themeLoading="1";var fi=document.createElement("link");fi.rel="icon";fi.type="image/svg+xml";fi.href=t==="vhs"?"favicon-vhs.svg":"favicon-sturnus.svg";document.head.appendChild(fi);}catch(e){}})()</script>
+  <script src="js/faro.js"></script>
+  <style>
+    .guide-layout {
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      gap: 40px;
+      align-items: start;
+      max-width: 1000px;
+    }
+    @media (max-width: 800px) {
+      .guide-layout { grid-template-columns: 1fr; }
+      .guide-toc { display: none; }
+    }
+    .guide-toc {
+      position: sticky;
+      top: 80px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+    }
+    .guide-toc-title {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+    .guide-toc a {
+      display: block;
+      font-size: 12px;
+      color: var(--text-secondary);
+      text-decoration: none;
+      padding: 4px 0;
+      border-left: 2px solid transparent;
+      padding-left: 8px;
+      transition: color 0.1s, border-color 0.1s;
+    }
+    .guide-toc a:hover { color: var(--text-link); border-color: var(--accent); }
+    .guide-toc a.sub { padding-left: 20px; font-size: 11px; color: var(--text-muted); }
+
+    .guide-body h2 {
+      font-size: 20px;
+      margin: 40px 0 12px;
+      padding-top: 40px;
+      border-top: 1px solid var(--border);
+      color: var(--text-primary);
+    }
+    .guide-body h2:first-child { margin-top: 0; padding-top: 0; border-top: none; }
+    .guide-body h3 {
+      font-size: 14px;
+      font-family: var(--font-mono);
+      color: var(--text-link);
+      margin: 24px 0 8px;
+    }
+    .guide-body p { font-size: 13px; color: var(--text-secondary); line-height: 1.7; margin-bottom: 12px; }
+    .guide-body ul { font-size: 13px; color: var(--text-secondary); line-height: 1.7; margin: 0 0 12px 0; padding-left: 20px; }
+    .guide-body li { margin-bottom: 4px; }
+    .guide-body code {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 1px 5px;
+      color: var(--text-link);
+    }
+    .guide-body pre {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      overflow-x: auto;
+      margin: 12px 0 20px;
+    }
+    .guide-body pre code {
+      background: none;
+      border: none;
+      padding: 0;
+      font-size: 12px;
+      color: var(--text-primary);
+    }
+    .guide-callout {
+      background: var(--accent-subtle);
+      border-left: 3px solid var(--accent);
+      border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 12px 16px;
+      margin: 16px 0;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+    .guide-callout strong { color: var(--text-primary); }
+    .step-list { counter-reset: steps; list-style: none; padding: 0; }
+    .step-list li {
+      counter-increment: steps;
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      margin-bottom: 14px;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+    .step-list li::before {
+      content: counter(steps);
+      width: 24px; height: 24px;
+      min-width: 24px;
+      border-radius: 50%;
+      background: var(--accent-subtle);
+      border: 1px solid var(--accent);
+      color: var(--text-link);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 1px;
+    }
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <a href="index.html" class="nav-brand">
+    <span class="nav-brand-icon-wrap"><svg class="nav-brand-icon" viewBox="0 0 20 14" fill="currentColor" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg"><rect x="5" y="0" width="5" height="1"/><rect x="4" y="1" width="7" height="1"/><rect x="2" y="2" width="5" height="1"/><rect x="8" y="2" width="4" height="1"/><rect x="1" y="3" width="12" height="1"/><rect x="2" y="4" width="14" height="1"/><rect x="3" y="5" width="15" height="1"/><rect x="4" y="6" width="15" height="1"/><rect x="4" y="7" width="15" height="1"/><rect x="4" y="8" width="12" height="1"/><rect x="5" y="9" width="8" height="1"/><rect x="6" y="10" width="5" height="1"/><rect x="7" y="11" width="1" height="1"/><rect x="10" y="11" width="1" height="1"/><rect x="7" y="12" width="1" height="1"/><rect x="10" y="12" width="1" height="1"/><rect x="6" y="13" width="3" height="1"/><rect x="10" y="13" width="2" height="1"/></svg></span>
+    <span class="nav-brand-name">STURNUS</span>
+  </a>
+  <div class="nav-spacer"></div>
+  <a href="admin.html" class="nav-link">← Admin</a>
+</nav>
+
+<div class="page-content">
+  <div class="container" style="max-width:1100px;">
+
+    <div class="page-header" style="margin-bottom:32px;">
+      <h1>Admin Guide</h1>
+      <p class="text-muted text-sm" style="margin-top:6px;">How to manage STURNUS and contribute new challenges</p>
+    </div>
+
+    <div class="guide-layout">
+
+      <!-- Table of contents -->
+      <nav class="guide-toc" aria-label="Page contents">
+        <div class="guide-toc-title">Contents</div>
+        <a href="#overview">Overview</a>
+        <a href="#admin-panel">Admin Panel</a>
+        <a href="#challenges-tab" class="sub">Challenges tab</a>
+        <a href="#analytics-tab" class="sub">Analytics tab</a>
+        <a href="#users-tab" class="sub">Users tab</a>
+        <a href="#invite-tab" class="sub">Invite tab</a>
+        <a href="#writing-challenges">Writing Challenges</a>
+        <a href="#challenge-structure" class="sub">Structure</a>
+        <a href="#writing-questions" class="sub">Questions</a>
+        <a href="#writing-hints" class="sub">Hints</a>
+        <a href="#mongo-data" class="sub">MongoDB data</a>
+        <a href="#log-files" class="sub">Log files</a>
+        <a href="#contribute">Contributing</a>
+        <a href="#local-dev" class="sub">Local dev</a>
+        <a href="#deploy" class="sub">Deploying</a>
+        <a href="#schema" class="sub">Schema changes</a>
+      </nav>
+
+      <!-- Body -->
+      <div class="guide-body">
+
+        <!-- Overview -->
+        <h2 id="overview">Overview</h2>
+        <p>STURNUS is a support engineering training platform. Each <strong>challenge</strong> is a fictional customer incident — complete with a support ticket, server logs, database collections, and screenshots. Trainees investigate the evidence, query the MongoDB terminal, and answer multiple-choice questions to earn points.</p>
+        <p>The platform is built with vanilla HTML/CSS/JS, hosted on Vercel, and backed by Supabase (Postgres + Auth + RLS). There is no build step — every file is served as-is.</p>
+        <div class="guide-callout">
+          <strong>Two platforms, one codebase.</strong> STURNUS (<code>sturnus.app</code>) and V.H.S. (<code>bekind.support</code>) share the same code and database but have separate themes, leaderboards, and user pools. The theme is determined by the domain at login and stored per-user. Admins can see both.
+        </div>
+
+        <!-- Admin Panel -->
+        <h2 id="admin-panel">Admin Panel</h2>
+        <p>The admin panel is at <code>/admin.html</code>. It is only accessible to users with <code>role = 'admin'</code> in the profiles table. The link is hidden from regular users.</p>
+
+        <h3 id="challenges-tab">Challenges tab</h3>
+        <p>The main challenge management interface. From here you can:</p>
+        <ul>
+          <li>Browse all challenges with search, status filter, and sortable columns</li>
+          <li>Toggle active/inactive per row, or use checkboxes for bulk activate/deactivate</li>
+          <li>Click <strong>＋ New Challenge</strong> to open the creation form</li>
+          <li>Use the <strong>⋯</strong> row menu to Preview, Edit, Duplicate, or Delete a challenge</li>
+          <li>The Difficulty column shows the community average rating from post-mortem reflections</li>
+        </ul>
+        <div class="guide-callout">
+          <strong>Inactive challenges</strong> are hidden from users on the dashboard. Use this to stage a challenge before it's ready, or to retire one without deleting it.
+        </div>
+
+        <h3 id="analytics-tab">Analytics tab</h3>
+        <p>Shows per-challenge stats: attempt count, solve count, solve rate, average score, average hints cost, and average time to solve. Rows are flagged automatically:</p>
+        <ul>
+          <li><strong style="color:var(--text-danger,#e06c75);">Red border</strong> — solve rate above 90% (possibly too easy) or below 20% (possibly too hard). Only triggered with ≥3 attempts.</li>
+          <li><strong style="color:var(--text-warning,#e5c07b);">Yellow border</strong> — average hints cost exceeds 50% of average score (hint-dependent).</li>
+        </ul>
+        <p>Use these signals to decide whether a challenge needs rebalancing — adjust question difficulty, add a free hint, or change point values.</p>
+
+        <h3 id="users-tab">Users tab</h3>
+        <p>Shows all users with their handle, score, theme, and role. Use <strong>Reset scores</strong> to zero out a specific user's score and clear their submissions — useful during testing.</p>
+
+        <h3 id="invite-tab">Invite tab</h3>
+        <p>Sends a magic-link invite email via the <code>/api/invite</code> serverless function. The invitee clicks the link, picks a handle, and is in. You can invite as <code>user</code> or <code>admin</code>. Invites only work when deployed to Vercel (the function requires the service role key which is never in client code).</p>
+
+        <!-- Writing Challenges -->
+        <h2 id="writing-challenges">Writing Challenges</h2>
+        <p>The best challenges have a clear root cause hidden behind plausible red herrings, at least one data source that requires querying, and questions that test reasoning not trivia. A good challenge takes 15–30 minutes to solve without hints.</p>
+
+        <h3 id="challenge-structure">Structure</h3>
+        <p>Every challenge has:</p>
+        <ul>
+          <li><strong>ID</strong> — e.g. <code>TICKET-0004</code>. Auto-incremented by the form, but editable.</li>
+          <li><strong>Title</strong> — short, evocative name for the incident (e.g. "The Phantom Session").</li>
+          <li><strong>Scenario</strong> — 2–4 sentences describing the incident from a support/engineering perspective. What happened, when, how widespread.</li>
+          <li><strong>Ticket quote</strong> — the customer's actual words. Ideally emotional and specific enough to feel real. This is what the trainee sees first.</li>
+          <li><strong>Architectural context</strong> — the relevant infrastructure: services, databases, caching layers, deployment cadence. Trainees use this to orient their investigation.</li>
+          <li><strong>Red herrings</strong> — a JSON array of plausible but irrelevant facts. These make the challenge feel realistic and harder.</li>
+          <li><strong>Tags</strong> — used for filtering and "recommended next challenge" matching. Keep them lowercase and consistent (e.g. <code>redis</code>, <code>session-management</code>, <code>incident-response</code>).</li>
+          <li><strong>Active</strong> — must be checked for the challenge to appear to users.</li>
+        </ul>
+
+        <h3 id="writing-questions">Questions</h3>
+        <p>Each challenge has 2–4 questions that unlock progressively as the trainee answers correctly. Each question has:</p>
+        <ul>
+          <li><strong>Label</strong> — a short category shown above the question (e.g. "Root Cause", "Immediate Mitigation").</li>
+          <li><strong>Question text</strong> — the actual question. Should be specific and unambiguous.</li>
+          <li><strong>4 options</strong> — one correct, three plausible distractors. Distractors should be wrong for a clear reason a knowledgeable person would understand.</li>
+          <li><strong>Correct option</strong> — zero-indexed (0–3).</li>
+          <li><strong>Points</strong> — typically 100–150 for root cause, 75–100 for follow-up questions.</li>
+          <li><strong>Explanation</strong> — shown after submission. Explains why the correct answer is right and why the distractors are wrong. This is the most educational part.</li>
+        </ul>
+        <div class="guide-callout">
+          <strong>Tip:</strong> write the explanation first. If you can't clearly articulate why one answer is right and others are wrong, the question isn't ready yet.
+        </div>
+
+        <h3 id="writing-hints">Hints</h3>
+        <p>Hints cost points when unlocked. Convention:</p>
+        <ul>
+          <li><strong>Hint 0 (free)</strong> — a broad directional nudge. "Look at both log files — the timestamps are related."</li>
+          <li><strong>Hint 1 (25 pts)</strong> — explains a key technical concept the trainee might not know.</li>
+          <li><strong>Hint 2 (50 pts)</strong> — points directly at the relevant evidence.</li>
+        </ul>
+        <p>Hints should never give away the answer outright — they should reduce the search space.</p>
+
+        <h3 id="mongo-data">MongoDB collections</h3>
+        <p>Each challenge includes synthetic MongoDB documents that trainees query via the in-browser terminal. The terminal supports <code>find</code>, <code>findOne</code>, <code>countDocuments</code>, and <code>distinct</code> with full filter, projection, sort, and limit support.</p>
+        <p>Good collection design:</p>
+        <ul>
+          <li>Include 2–3 collections — enough to cross-reference, not so many it's overwhelming</li>
+          <li>Use realistic field names and data types (<code>$oid</code>, <code>$date</code> for ObjectIds and timestamps)</li>
+          <li>Plant the key evidence in the data, but don't make it the only document</li>
+          <li>Include a few normal-looking documents alongside the smoking gun</li>
+        </ul>
+        <p>In the admin form, the MongoDB field is a JSON array. Each entry needs <code>collection</code> (name), <code>required_field</code> (used for schema display), and <code>synthetic_docs</code> (array of documents).</p>
+
+        <h3 id="log-files">Log files</h3>
+        <p>Log files are shown in a syntax-highlighted modal. Include 1–2 log files per challenge as JSON arrays of log entries. Each entry should have at minimum <code>ts</code> (ISO timestamp), <code>level</code> (<code>info</code>/<code>warn</code>/<code>error</code>), and <code>msg</code>. Add relevant fields (e.g. <code>session_id</code>, <code>user_id</code>, <code>path</code>) to make queries meaningful.</p>
+        <p>The most effective log files show a pattern over time — a warning escalating to errors, or a cascade starting with an unrelated-looking event.</p>
+
+        <!-- Contributing -->
+        <h2 id="contribute">Contributing</h2>
+
+        <h3 id="local-dev">Local development</h3>
+        <p>The app has no build step. To run locally:</p>
+        <ol class="step-list">
+          <li>Clone the repo and open any HTML file directly in a browser, or use a local server (e.g. <code>npx serve .</code> or VS Code Live Server).</li>
+          <li>Create a <code>.env.local</code> file (or set <code>js/config.js</code> directly) with your Supabase project URL and anon key. The anon key is safe to commit — RLS handles data isolation.</li>
+          <li>Run the schema against your Supabase project's SQL editor: start with <code>schema.sql</code>, then apply any <code>migrate-*.sql</code> files in order.</li>
+          <li>Seed a test challenge using <code>seed-test-ticket.sql</code> as a reference. Set <code>active = false</code> until it looks right.</li>
+        </ol>
+        <div class="guide-callout">
+          <strong>Never commit the service role key.</strong> It lives only in Vercel environment variables and is only used by the <code>/api/invite</code> serverless function. The anon key in <code>js/config.js</code> is intentionally public.
+        </div>
+
+        <h3 id="deploy">Deploying</h3>
+        <p>The app is deployed to Vercel from the <code>main</code> branch. Push to <code>main</code> and Vercel auto-deploys within ~30 seconds. No build command — Vercel serves the static files directly.</p>
+        <p>Vercel environment variables needed:</p>
+        <ul>
+          <li><code>SUPABASE_URL</code> — your project URL</li>
+          <li><code>SUPABASE_SERVICE_ROLE_KEY</code> — only used by <code>/api/invite.js</code></li>
+        </ul>
+        <p>The <code>vercel.json</code> config handles routing. All <code>.html</code> files are served as-is with no rewriting.</p>
+
+        <h3 id="schema">Schema changes</h3>
+        <p>Schema changes go in a new <code>migrate-*.sql</code> file. Run it in the Supabase SQL editor, commit the file alongside the front-end changes that use it. Naming convention: <code>migrate-{feature}.sql</code> (e.g. <code>migrate-notes.sql</code>).</p>
+        <p>A few things to know:</p>
+        <ul>
+          <li>Always use <code>CREATE TABLE IF NOT EXISTS</code> and <code>DROP POLICY IF EXISTS</code> before <code>CREATE POLICY</code> so migrations are re-runnable.</li>
+          <li>If you need to change a Postgres function's return type, you must <code>DROP FUNCTION</code> first — <code>CREATE OR REPLACE</code> won't work for signature changes.</li>
+          <li>All user-facing tables need RLS enabled and appropriate policies. The pattern is <code>auth.uid() = user_id</code>.</li>
+          <li>RPCs that write data should be <code>SECURITY DEFINER</code> so they run with elevated privileges, but always validate <code>auth.uid()</code> inside the function body.</li>
+        </ul>
+
+      </div><!-- /guide-body -->
+
+    </div><!-- /guide-layout -->
+  </div>
+</div>
+
+<script src="js/themes.js"></script>
+</body>
+</html>
