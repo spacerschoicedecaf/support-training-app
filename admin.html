@@ -411,6 +411,16 @@
         </div>
 
         <div class="form-group">
+          <label for="f-difficulty">Intended Difficulty <span class="label-hint">your assessment — separate from community rating</span></label>
+          <select id="f-difficulty" style="font-size:13px;padding:6px 8px;background:var(--bg-input,var(--bg-surface));border:1px solid var(--border);border-radius:var(--radius);color:var(--text-primary);">
+            <option value="">— not set —</option>
+            <option value="easy">Easy</option>
+            <option value="medium">Medium</option>
+            <option value="hard">Hard</option>
+          </select>
+        </div>
+
+        <div class="form-group">
           <label for="f-walkthrough">Walkthrough <span class="label-hint">optional — one way to approach this; shown after submission</span></label>
           <textarea id="f-walkthrough" rows="4" placeholder="Start by checking the logs for the timeframe reported. Notice the spike in…"></textarea>
         </div>
@@ -479,6 +489,7 @@
               <th class="sortable-th" data-col="points" style="cursor:pointer;user-select:none;">Points <span class="sort-icon" data-col="points">↕</span></th>
               <th class="sortable-th" data-col="status" style="cursor:pointer;user-select:none;">Status <span class="sort-icon" data-col="status">↕</span></th>
               <th class="sortable-th" data-col="difficulty" style="cursor:pointer;user-select:none;">Difficulty <span class="sort-icon" data-col="difficulty">↕</span></th>
+              <th class="sortable-th" data-col="solves" style="cursor:pointer;user-select:none;">Solves <span class="sort-icon" data-col="solves">↕</span></th>
               <th style="width:40px;"></th>
             </tr>
           </thead>
@@ -891,13 +902,15 @@ function renumberList(listId, labelPrefix) {
 
   async function loadChallenges() {
     challengesLoaded = true;
-    const [challengesRes, diffRes] = await Promise.all([
+    const [challengesRes, diffRes, solveRes] = await Promise.all([
       _supabase.from('challenges')
-        .select('id, title, questions, active, variant_group, tags, created_at')
+        .select('id, title, questions, active, variant_group, tags, created_at, difficulty')
         .order('created_at', { ascending: true }),
       _supabase.from('submissions')
         .select('challenge_id, difficulty_rating')
-        .not('difficulty_rating', 'is', null)
+        .not('difficulty_rating', 'is', null),
+      _supabase.from('submissions')
+        .select('challenge_id, score_earned')
     ]);
 
     document.getElementById('ch-table-loading').style.display = 'none';
@@ -905,7 +918,7 @@ function renumberList(listId, labelPrefix) {
     table.classList.remove('hidden');
     if (challengesRes.error) { showGlobalAlert('Failed to load challenges: ' + challengesRes.error.message, 'danger'); return; }
 
-    // Build avg difficulty map
+    // Build avg community difficulty map
     const raw = {};
     (diffRes.data || []).forEach(s => {
       if (!raw[s.challenge_id]) raw[s.challenge_id] = { sum: 0, n: 0 };
@@ -917,6 +930,14 @@ function renumberList(listId, labelPrefix) {
       _chDifficultyMap[id] = { avg: (sum / n).toFixed(1), n };
     });
 
+    // Build solve stats map { challenge_id: { count, avgScore } }
+    _chSolveMap = {};
+    (solveRes.data || []).forEach(s => {
+      if (!_chSolveMap[s.challenge_id]) _chSolveMap[s.challenge_id] = { count: 0, sum: 0 };
+      _chSolveMap[s.challenge_id].count += 1;
+      _chSolveMap[s.challenge_id].sum   += (s.score_earned || 0);
+    });
+
     const challenges = challengesRes.data || [];
     document.getElementById('ch-count').textContent = challenges.length + ' total';
     renderChallengeTable(challenges);
@@ -924,6 +945,7 @@ function renumberList(listId, labelPrefix) {
 
   // Store the full challenge list for preview lookups + filter/sort state
   let _challengeCache = [];
+  let _chSolveMap    = {}; // { challenge_id: { count, sum } }
   let _chSortCol = 'id', _chSortDir = 1; // 1=asc, -1=desc
 
   function applyChFilter() {
@@ -948,6 +970,7 @@ function renumberList(listId, labelPrefix) {
       if (_chSortCol === 'points')     { av = (a.questions||[]).reduce((s,q)=>s+(q.points||0),0); bv = (b.questions||[]).reduce((s,q)=>s+(q.points||0),0); }
       if (_chSortCol === 'status')     { av = a.active ? 1 : 0; bv = b.active ? 1 : 0; }
       if (_chSortCol === 'difficulty') { av = parseFloat(_chDifficultyMap[a.id]?.avg || 0); bv = parseFloat(_chDifficultyMap[b.id]?.avg || 0); }
+      if (_chSortCol === 'solves')    { av = _chSolveMap[a.id]?.count || 0; bv = _chSolveMap[b.id]?.count || 0; }
       if (av < bv) return -1 * _chSortDir;
       if (av > bv) return  1 * _chSortDir;
       return 0;
@@ -1017,23 +1040,41 @@ function renumberList(listId, labelPrefix) {
     document.getElementById('bulk-action-bar').style.display = 'none';
 
     challenges.forEach(ch => {
+      // Community difficulty
       const diff = _chDifficultyMap[ch.id];
       const diffCell = diff
-        ? `<span style="font-family:var(--font-mono);font-size:12px;">${diff.avg}</span><span style="font-size:10px;color:var(--text-muted);margin-left:4px;">(${diff.n})</span>`
+        ? `<span style="font-family:var(--font-mono);font-size:12px;">${diff.avg}</span><span style="font-size:10px;color:var(--text-muted);margin-left:3px;">(${diff.n})</span>`
         : `<span style="color:var(--text-muted);font-size:11px;">—</span>`;
+
+      // Intended difficulty badge
+      const intendedBadge = ch.difficulty
+        ? `<span style="font-size:10px;font-family:var(--font-mono);font-weight:700;padding:1px 5px;border-radius:3px;border:1px solid var(--border);color:var(--text-muted);margin-left:5px;">${ch.difficulty}</span>`
+        : '';
+
+      // Solves + avg score
+      const solves = _chSolveMap[ch.id];
+      const solvesCell = solves
+        ? `<span style="font-family:var(--font-mono);font-size:12px;">${solves.count}</span><span style="font-size:10px;color:var(--text-muted);margin-left:3px;">· ${Math.round(solves.sum/solves.count)}pts</span>`
+        : `<span style="color:var(--text-muted);font-size:11px;">—</span>`;
+
+      // Variant group badge in title cell
+      const variantBadge = ch.variant_group
+        ? `<span style="display:inline-block;font-size:10px;font-family:var(--font-mono);padding:1px 5px;border-radius:3px;background:var(--accent-subtle);color:var(--text-link);border:1px solid var(--accent,#58a6ff);margin-left:6px;vertical-align:middle;">${escHtml(ch.variant_group)}</span>`
+        : '';
 
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td style="width:32px;"><input type="checkbox" class="ch-select" data-id="${escHtml(ch.id)}" style="cursor:pointer;accent-color:var(--accent);"></td>
         <td class="td-mono">${escHtml(ch.id)}</td>
-        <td>${escHtml(ch.title)}</td>
+        <td>${escHtml(ch.title)}${variantBadge}</td>
         <td class="td-mono">${(ch.questions||[]).reduce((s,q)=>s+(q.points||0),0)}</td>
         <td>
           <button class="toggle-pill ${ch.active ? 'active' : 'inactive'}" data-id="${escHtml(ch.id)}" data-active="${ch.active}">
             ${ch.active ? '● Active' : '○ Inactive'}
           </button>
         </td>
-        <td>${diffCell}</td>
+        <td>${diffCell}${intendedBadge}</td>
+        <td>${solvesCell}</td>
         <td style="width:40px;position:relative;">
           <button class="btn-row-menu" data-id="${escHtml(ch.id)}" title="Actions" aria-label="Row actions" style="background:none;border:none;cursor:pointer;padding:4px 8px;font-size:18px;color:var(--text-muted);line-height:1;border-radius:var(--radius);">⋯</button>
           <div class="row-menu-dropdown hidden" data-id="${escHtml(ch.id)}">
@@ -1041,6 +1082,8 @@ function renumberList(listId, labelPrefix) {
             <button class="row-menu-item btn-edit-ch" data-id="${escHtml(ch.id)}">Edit</button>
             <button class="row-menu-item btn-duplicate-ch" data-id="${escHtml(ch.id)}">Duplicate</button>
             ${ch.variant_group ? `<button class="row-menu-item btn-force-variant" data-group="${escHtml(ch.variant_group)}">Force Variant</button>` : ''}
+            <div class="row-menu-divider"></div>
+            <button class="row-menu-item btn-reset-attempt" data-id="${escHtml(ch.id)}" data-title="${escHtml(ch.title)}">Reset my attempt</button>
             <div class="row-menu-divider"></div>
             <button class="row-menu-item row-menu-danger btn-delete-ch" data-id="${escHtml(ch.id)}" data-title="${escHtml(ch.title)}">Delete</button>
           </div>
@@ -1093,6 +1136,9 @@ function renumberList(listId, labelPrefix) {
       btn.addEventListener('click', () => { closeAllRowMenus(); editChallenge(btn.dataset.id); }));
     tbody.querySelectorAll('.btn-delete-ch').forEach(btn =>
       btn.addEventListener('click', () => { closeAllRowMenus(); deleteChallenge(btn.dataset.id, btn.dataset.title); }));
+
+    tbody.querySelectorAll('.btn-reset-attempt').forEach(btn =>
+      btn.addEventListener('click', () => { closeAllRowMenus(); resetMyAttempt(btn.dataset.id, btn.dataset.title); }));
   }
 
   function closeAllRowMenus() {
@@ -1139,6 +1185,20 @@ function renumberList(listId, labelPrefix) {
     await loadChallenges();
   }
 
+  async function resetMyAttempt(id, title) {
+    if (!confirm(`Reset your own attempt on "${title}" (${id})?\n\nThis deletes your submission, hint unlocks, and timer for this challenge only. Your total score will decrease accordingly.`)) return;
+    const uid = ctx.user.id;
+    const [s, h, t] = await Promise.all([
+      _supabase.from('submissions').delete().eq('user_id', uid).eq('challenge_id', id),
+      _supabase.from('hint_unlocks').delete().eq('user_id', uid).eq('challenge_id', id),
+      _supabase.from('challenge_starts').delete().eq('user_id', uid).eq('challenge_id', id),
+    ]);
+    const err = s.error || h.error || t.error;
+    if (err) { showGlobalAlert('Reset failed: ' + err.message, 'danger'); return; }
+    showGlobalAlert(`Your attempt on ${id} has been reset. You can replay it fresh.`);
+    await loadChallenges(); // refresh solves count
+  }
+
   // ── Edit: populate builders from loaded challenge ─────────────────────────
   async function editChallenge(id) {
     const { data: ch, error } = await _supabase.from('challenges').select('*').eq('id', id).single();
@@ -1155,6 +1215,7 @@ function renumberList(listId, labelPrefix) {
     document.getElementById('f-red-herrings').value       = JSON.stringify(ch.red_herrings || [], null, 2);
     document.getElementById('f-mongo-collections').value  = JSON.stringify(ch.mongo_collections || [], null, 2);
     document.getElementById('f-tags').value               = ch.tags ? JSON.stringify(ch.tags) : '[]';
+    document.getElementById('f-difficulty').value          = ch.difficulty || '';
     document.getElementById('f-walkthrough').value        = ch.walkthrough || '';
     document.getElementById('f-est-minutes').value        = ch.est_minutes || '';
     document.getElementById('f-variant-group').value      = ch.variant_group || '';
@@ -1190,6 +1251,7 @@ function renumberList(listId, labelPrefix) {
       document.getElementById(id).value = '';
     });
     document.getElementById('f-tags').value          = '[]';
+    document.getElementById('f-difficulty').value    = '';
     document.getElementById('f-walkthrough').value   = '';
     document.getElementById('f-est-minutes').value   = '';
     document.getElementById('f-variant-group').value = '';
@@ -1474,6 +1536,7 @@ function renumberList(listId, labelPrefix) {
       questions,
       hints,
       tags:         (() => { try { return JSON.parse(document.getElementById('f-tags').value || '[]'); } catch(e) { return []; } })(),
+      difficulty:    document.getElementById('f-difficulty').value || null,
       walkthrough:   document.getElementById('f-walkthrough').value.trim() || null,
       est_minutes:   parseInt(document.getElementById('f-est-minutes').value) || null,
       variant_group: document.getElementById('f-variant-group').value.trim() || null,
@@ -1553,6 +1616,7 @@ function renumberList(listId, labelPrefix) {
     document.getElementById('f-arch').value     = ch.arch_context;
     document.getElementById('f-red-herrings').value      = JSON.stringify(ch.red_herrings || [], null, 2);
     document.getElementById('f-mongo-collections').value = JSON.stringify(randomizedMongo, null, 2);
+    document.getElementById('f-difficulty').value         = ch.difficulty || '';
     document.getElementById('f-walkthrough').value        = ch.walkthrough || '';
     document.getElementById('f-est-minutes').value        = ch.est_minutes || '';
     document.getElementById('f-variant-group').value     = ch.variant_group || '';
