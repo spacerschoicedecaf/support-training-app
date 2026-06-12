@@ -17,6 +17,31 @@
       font-family: var(--font-mono);
     }
     .challenge-row-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+    /* ── Row action dropdown ───────────────────────────── */
+    .btn-row-menu:hover { color: var(--text-primary); background: var(--bg-surface); }
+    .row-menu-dropdown {
+      position: absolute;
+      right: 0; top: 100%;
+      z-index: 200;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: 0 4px 16px rgba(0,0,0,.3);
+      min-width: 148px;
+      padding: 4px 0;
+    }
+    .row-menu-item {
+      display: block; width: 100%;
+      padding: 7px 14px;
+      font-size: 12px; text-align: left;
+      background: none; border: none; cursor: pointer;
+      color: var(--text-primary);
+      white-space: nowrap;
+    }
+    .row-menu-item:hover { background: var(--bg-surface); }
+    .row-menu-danger { color: var(--text-danger, #e06c75) !important; }
+    .row-menu-divider { height: 1px; background: var(--border); margin: 4px 0; }
     .toggle-pill {
       display: inline-flex;
       align-items: center;
@@ -340,7 +365,8 @@
               <th class="sortable-th" data-col="title" style="cursor:pointer;user-select:none;">Title <span class="sort-icon" data-col="title">↕</span></th>
               <th class="sortable-th" data-col="points" style="cursor:pointer;user-select:none;">Points <span class="sort-icon" data-col="points">↕</span></th>
               <th class="sortable-th" data-col="status" style="cursor:pointer;user-select:none;">Status <span class="sort-icon" data-col="status">↕</span></th>
-              <th>Actions</th>
+              <th class="sortable-th" data-col="difficulty" style="cursor:pointer;user-select:none;">Difficulty <span class="sort-icon" data-col="difficulty">↕</span></th>
+              <th style="width:40px;"></th>
             </tr>
           </thead>
           <tbody id="ch-tbody"></tbody>
@@ -748,17 +774,37 @@ function renumberList(listId, labelPrefix) {
   });
 
   // ── Challenges: Load ──────────────────────────────────────────────────────
+  let _chDifficultyMap = {}; // challenge_id → avg rating
+
   async function loadChallenges() {
     challengesLoaded = true;
-    const { data: challenges, error } = await _supabase
-      .from('challenges')
-      .select('id, title, questions, active, variant_group, created_at')
-      .order('created_at', { ascending: true });
+    const [challengesRes, diffRes] = await Promise.all([
+      _supabase.from('challenges')
+        .select('id, title, questions, active, variant_group, tags, created_at')
+        .order('created_at', { ascending: true }),
+      _supabase.from('submissions')
+        .select('challenge_id, difficulty_rating')
+        .not('difficulty_rating', 'is', null)
+    ]);
 
     document.getElementById('ch-table-loading').style.display = 'none';
     const table = document.getElementById('ch-table');
     table.classList.remove('hidden');
-    if (error) { showGlobalAlert('Failed to load challenges: ' + error.message, 'danger'); return; }
+    if (challengesRes.error) { showGlobalAlert('Failed to load challenges: ' + challengesRes.error.message, 'danger'); return; }
+
+    // Build avg difficulty map
+    const raw = {};
+    (diffRes.data || []).forEach(s => {
+      if (!raw[s.challenge_id]) raw[s.challenge_id] = { sum: 0, n: 0 };
+      raw[s.challenge_id].sum += s.difficulty_rating;
+      raw[s.challenge_id].n  += 1;
+    });
+    _chDifficultyMap = {};
+    Object.entries(raw).forEach(([id, { sum, n }]) => {
+      _chDifficultyMap[id] = { avg: (sum / n).toFixed(1), n };
+    });
+
+    const challenges = challengesRes.data || [];
     document.getElementById('ch-count').textContent = challenges.length + ' total';
     renderChallengeTable(challenges);
   }
@@ -784,10 +830,11 @@ function renumberList(listId, labelPrefix) {
     // Sort
     visible.sort((a, b) => {
       let av, bv;
-      if (_chSortCol === 'id')     { av = a.id;    bv = b.id; }
-      if (_chSortCol === 'title')  { av = (a.title||'').toLowerCase(); bv = (b.title||'').toLowerCase(); }
-      if (_chSortCol === 'points') { av = (a.questions||[]).reduce((s,q)=>s+(q.points||0),0); bv = (b.questions||[]).reduce((s,q)=>s+(q.points||0),0); }
-      if (_chSortCol === 'status') { av = a.active ? 1 : 0; bv = b.active ? 1 : 0; }
+      if (_chSortCol === 'id')         { av = a.id;    bv = b.id; }
+      if (_chSortCol === 'title')      { av = (a.title||'').toLowerCase(); bv = (b.title||'').toLowerCase(); }
+      if (_chSortCol === 'points')     { av = (a.questions||[]).reduce((s,q)=>s+(q.points||0),0); bv = (b.questions||[]).reduce((s,q)=>s+(q.points||0),0); }
+      if (_chSortCol === 'status')     { av = a.active ? 1 : 0; bv = b.active ? 1 : 0; }
+      if (_chSortCol === 'difficulty') { av = parseFloat(_chDifficultyMap[a.id]?.avg || 0); bv = parseFloat(_chDifficultyMap[b.id]?.avg || 0); }
       if (av < bv) return -1 * _chSortDir;
       if (av > bv) return  1 * _chSortDir;
       return 0;
@@ -857,6 +904,11 @@ function renumberList(listId, labelPrefix) {
     document.getElementById('bulk-action-bar').style.display = 'none';
 
     challenges.forEach(ch => {
+      const diff = _chDifficultyMap[ch.id];
+      const diffCell = diff
+        ? `<span style="font-family:var(--font-mono);font-size:12px;">${diff.avg}</span><span style="font-size:10px;color:var(--text-muted);margin-left:4px;">(${diff.n})</span>`
+        : `<span style="color:var(--text-muted);font-size:11px;">—</span>`;
+
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td style="width:32px;"><input type="checkbox" class="ch-select" data-id="${escHtml(ch.id)}" style="cursor:pointer;accent-color:var(--accent);"></td>
@@ -868,13 +920,16 @@ function renumberList(listId, labelPrefix) {
             ${ch.active ? '● Active' : '○ Inactive'}
           </button>
         </td>
-        <td>
-          <div class="challenge-row-actions">
-            <button class="btn btn-ghost btn-sm btn-preview-ch" data-id="${escHtml(ch.id)}">Preview</button>
-            <button class="btn btn-ghost btn-sm btn-edit-ch" data-id="${escHtml(ch.id)}">Edit</button>
-            <button class="btn btn-ghost btn-sm btn-duplicate-ch" data-id="${escHtml(ch.id)}">Duplicate</button>
-            ${ch.variant_group ? `<button class="btn btn-ghost btn-sm btn-force-variant" data-group="${escHtml(ch.variant_group)}">Force Variant</button>` : ''}
-            <button class="btn btn-danger btn-sm btn-delete-ch" data-id="${escHtml(ch.id)}" data-title="${escHtml(ch.title)}">Delete</button>
+        <td>${diffCell}</td>
+        <td style="width:40px;position:relative;">
+          <button class="btn-row-menu" data-id="${escHtml(ch.id)}" title="Actions" aria-label="Row actions" style="background:none;border:none;cursor:pointer;padding:4px 8px;font-size:18px;color:var(--text-muted);line-height:1;border-radius:var(--radius);">⋯</button>
+          <div class="row-menu-dropdown hidden" data-id="${escHtml(ch.id)}">
+            <button class="row-menu-item btn-preview-ch" data-id="${escHtml(ch.id)}">Preview</button>
+            <button class="row-menu-item btn-edit-ch" data-id="${escHtml(ch.id)}">Edit</button>
+            <button class="row-menu-item btn-duplicate-ch" data-id="${escHtml(ch.id)}">Duplicate</button>
+            ${ch.variant_group ? `<button class="row-menu-item btn-force-variant" data-group="${escHtml(ch.variant_group)}">Force Variant</button>` : ''}
+            <div class="row-menu-divider"></div>
+            <button class="row-menu-item row-menu-danger btn-delete-ch" data-id="${escHtml(ch.id)}" data-title="${escHtml(ch.title)}">Delete</button>
           </div>
         </td>
       `;
@@ -887,17 +942,28 @@ function renumberList(listId, labelPrefix) {
     tbody.querySelectorAll('.toggle-pill').forEach(btn =>
       btn.addEventListener('click', () => toggleActive(btn.dataset.id, btn.dataset.active === 'true')));
 
+    // ⋯ dropdown toggle
+    tbody.querySelectorAll('.btn-row-menu').forEach(btn => {
+      btn.addEventListener('click', e => {
+        e.stopPropagation();
+        const id = btn.dataset.id;
+        document.querySelectorAll('.row-menu-dropdown').forEach(d => {
+          d.classList.toggle('hidden', d.dataset.id !== id || !d.classList.contains('hidden'));
+        });
+      });
+    });
+
     tbody.querySelectorAll('.btn-preview-ch').forEach(btn =>
       btn.addEventListener('click', async () => {
-        const btn2 = btn; btn2.disabled = true; btn2.textContent = '…';
+        closeAllRowMenus();
         const { data: ch, error } = await _supabase.from('challenges').select('*').eq('id', btn.dataset.id).single();
-        btn2.disabled = false; btn2.textContent = 'Preview';
         if (error || !ch) { showGlobalAlert('Failed to load preview: ' + (error?.message || 'not found'), 'danger'); return; }
         window.openChallengePreview(ch);
       }));
 
     tbody.querySelectorAll('.btn-force-variant').forEach(btn => {
       btn.addEventListener('click', async () => {
+        closeAllRowMenus();
         const group = btn.dataset.group;
         if (!confirm(`Force next variant for group "${group}"?\n\nBack-dates all group submissions to 92 days ago so every user sees the next variant.`)) return;
         btn.disabled = true; btn.textContent = '…';
@@ -909,12 +975,19 @@ function renumberList(listId, labelPrefix) {
     });
 
     tbody.querySelectorAll('.btn-duplicate-ch').forEach(btn =>
-      btn.addEventListener('click', () => duplicateChallenge(btn.dataset.id, challenges)));
+      btn.addEventListener('click', () => { closeAllRowMenus(); duplicateChallenge(btn.dataset.id, challenges); }));
     tbody.querySelectorAll('.btn-edit-ch').forEach(btn =>
-      btn.addEventListener('click', () => editChallenge(btn.dataset.id)));
+      btn.addEventListener('click', () => { closeAllRowMenus(); editChallenge(btn.dataset.id); }));
     tbody.querySelectorAll('.btn-delete-ch').forEach(btn =>
-      btn.addEventListener('click', () => deleteChallenge(btn.dataset.id, btn.dataset.title)));
+      btn.addEventListener('click', () => { closeAllRowMenus(); deleteChallenge(btn.dataset.id, btn.dataset.title); }));
   }
+
+  function closeAllRowMenus() {
+    document.querySelectorAll('.row-menu-dropdown').forEach(d => d.classList.add('hidden'));
+  }
+
+  // Close dropdowns when clicking outside
+  document.addEventListener('click', closeAllRowMenus);
 
   async function toggleActive(id, current) {
     const { error } = await _supabase.from('challenges').update({ active: !current }).eq('id', id);
