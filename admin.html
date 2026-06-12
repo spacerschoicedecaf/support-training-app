@@ -1375,7 +1375,7 @@ function renumberList(listId, labelPrefix) {
         if (!Array.isArray(q.options) || q.options.length !== 4) errs.push(`q${qi+1}: need exactly 4 options`);
       });
       const pts = ch.questions.reduce((s, q) => s + (q.points || 0), 0);
-      if (pts !== 100) errs.push(`points sum to ${pts}, expected 100`);
+      if (pts === 0) errs.push(`points sum to 0 — set points on each question`);
     }
     return errs;
   }
