@@ -313,8 +313,18 @@
         <h2>All Challenges</h2>
         <span class="text-muted text-sm" id="ch-count"></span>
       </div>
+      <!-- Search / filter bar -->
+      <div style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <input id="ch-search" type="search" placeholder="Search ID or title…" style="flex:1;min-width:160px;font-size:12px;font-family:var(--font-mono);padding:5px 8px;background:var(--bg-input,var(--bg-surface));border:1px solid var(--border);border-radius:var(--radius);color:var(--text-primary);">
+        <select id="ch-filter-status" style="font-size:12px;font-family:var(--font-mono);padding:5px 8px;background:var(--bg-input,var(--bg-surface));border:1px solid var(--border);border-radius:var(--radius);color:var(--text-primary);">
+          <option value="all">All statuses</option>
+          <option value="active">Active only</option>
+          <option value="inactive">Inactive only</option>
+        </select>
+        <span id="ch-filter-count" style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono);white-space:nowrap;"></span>
+      </div>
       <!-- Bulk action bar (hidden until rows are checked) -->
-      <div id="bulk-action-bar" style="display:none;padding:10px 16px;background:var(--accent-subtle);border-bottom:1px solid var(--border);display:none;align-items:center;gap:10px;">
+      <div id="bulk-action-bar" style="display:none;padding:10px 16px;background:var(--accent-subtle);border-bottom:1px solid var(--border);align-items:center;gap:10px;">
         <span id="bulk-selected-count" style="font-size:12px;font-family:var(--font-mono);color:var(--text-link);"></span>
         <button class="btn btn-secondary btn-sm" id="btn-bulk-activate">Activate</button>
         <button class="btn btn-secondary btn-sm" id="btn-bulk-deactivate">Deactivate</button>
@@ -326,11 +336,16 @@
           <thead>
             <tr>
               <th style="width:32px;"><input type="checkbox" id="ch-select-all" title="Select all" style="cursor:pointer;accent-color:var(--accent);"></th>
-              <th>ID</th><th>Title</th><th>Points</th><th>Status</th><th>Actions</th>
+              <th class="sortable-th" data-col="id" style="cursor:pointer;user-select:none;">ID <span class="sort-icon" data-col="id">↕</span></th>
+              <th class="sortable-th" data-col="title" style="cursor:pointer;user-select:none;">Title <span class="sort-icon" data-col="title">↕</span></th>
+              <th class="sortable-th" data-col="points" style="cursor:pointer;user-select:none;">Points <span class="sort-icon" data-col="points">↕</span></th>
+              <th class="sortable-th" data-col="status" style="cursor:pointer;user-select:none;">Status <span class="sort-icon" data-col="status">↕</span></th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody id="ch-tbody"></tbody>
         </table>
+        <div id="ch-empty" class="hidden loading-state text-muted" style="font-size:12px;">No challenges match.</div>
       </div>
     </div>
   </div>
@@ -748,8 +763,52 @@ function renumberList(listId, labelPrefix) {
     renderChallengeTable(challenges);
   }
 
-  // Store the full challenge list for preview lookups
+  // Store the full challenge list for preview lookups + filter/sort state
   let _challengeCache = [];
+  let _chSortCol = 'id', _chSortDir = 1; // 1=asc, -1=desc
+
+  function applyChFilter() {
+    const search = (document.getElementById('ch-search')?.value || '').toLowerCase();
+    const status = document.getElementById('ch-filter-status')?.value || 'all';
+
+    let visible = _challengeCache.filter(ch => {
+      const matchText = !search ||
+        ch.id.toLowerCase().includes(search) ||
+        (ch.title || '').toLowerCase().includes(search);
+      const matchStatus = status === 'all' ||
+        (status === 'active'   &&  ch.active) ||
+        (status === 'inactive' && !ch.active);
+      return matchText && matchStatus;
+    });
+
+    // Sort
+    visible.sort((a, b) => {
+      let av, bv;
+      if (_chSortCol === 'id')     { av = a.id;    bv = b.id; }
+      if (_chSortCol === 'title')  { av = (a.title||'').toLowerCase(); bv = (b.title||'').toLowerCase(); }
+      if (_chSortCol === 'points') { av = (a.questions||[]).reduce((s,q)=>s+(q.points||0),0); bv = (b.questions||[]).reduce((s,q)=>s+(q.points||0),0); }
+      if (_chSortCol === 'status') { av = a.active ? 1 : 0; bv = b.active ? 1 : 0; }
+      if (av < bv) return -1 * _chSortDir;
+      if (av > bv) return  1 * _chSortDir;
+      return 0;
+    });
+
+    // Update sort icons
+    document.querySelectorAll('.sort-icon').forEach(el => {
+      el.textContent = el.dataset.col === _chSortCol ? (_chSortDir === 1 ? '↑' : '↓') : '↕';
+    });
+
+    // Update count
+    const countEl = document.getElementById('ch-filter-count');
+    if (countEl) countEl.textContent = visible.length < _challengeCache.length
+      ? `${visible.length} of ${_challengeCache.length}` : '';
+
+    // Show/hide empty state
+    document.getElementById('ch-empty')?.classList.toggle('hidden', visible.length > 0);
+    document.getElementById('ch-table')?.classList.toggle('hidden', visible.length === 0);
+
+    renderChallengeRows(visible);
+  }
 
   function updateBulkBar() {
     const checked = document.querySelectorAll('.ch-select:checked');
@@ -768,6 +827,28 @@ function renumberList(listId, labelPrefix) {
 
   function renderChallengeTable(challenges) {
     _challengeCache = challenges;
+    // Wire up search/filter/sort controls once (guard with a flag)
+    if (!renderChallengeTable._wired) {
+      renderChallengeTable._wired = true;
+      document.getElementById('ch-search').addEventListener('input', applyChFilter);
+      document.getElementById('ch-filter-status').addEventListener('change', applyChFilter);
+      document.querySelectorAll('.sortable-th').forEach(th => {
+        th.addEventListener('click', () => {
+          const col = th.dataset.col;
+          if (_chSortCol === col) _chSortDir *= -1;
+          else { _chSortCol = col; _chSortDir = 1; }
+          applyChFilter();
+        });
+      });
+      document.getElementById('ch-select-all').addEventListener('change', e => {
+        document.querySelectorAll('.ch-select').forEach(cb => cb.checked = e.target.checked);
+        updateBulkBar();
+      });
+    }
+    applyChFilter();
+  }
+
+  function renderChallengeRows(challenges) {
     const tbody = document.getElementById('ch-tbody');
     tbody.innerHTML = '';
     // Reset select-all and bulk bar
@@ -802,11 +883,6 @@ function renumberList(listId, labelPrefix) {
 
     tbody.querySelectorAll('.ch-select').forEach(cb =>
       cb.addEventListener('change', updateBulkBar));
-
-    document.getElementById('ch-select-all').addEventListener('change', e => {
-      document.querySelectorAll('.ch-select').forEach(cb => cb.checked = e.target.checked);
-      updateBulkBar();
-    });
 
     tbody.querySelectorAll('.toggle-pill').forEach(btn =>
       btn.addEventListener('click', () => toggleActive(btn.dataset.id, btn.dataset.active === 'true')));
