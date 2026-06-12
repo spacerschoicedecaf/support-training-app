@@ -115,7 +115,7 @@ function escHtml(str) {
   Auth.populateNav(ctx.profile);
 
   // ── Load challenges + submissions in parallel ───────────────────────────────
-  const [challengesRes, submissionsRes] = await Promise.all([
+  const [challengesRes, submissionsRes, communityDiffRes] = await Promise.all([
     _supabase
       .from('challenges')
       .select('id, title, questions, variant_group, active, tags')
@@ -124,11 +124,27 @@ function escHtml(str) {
     _supabase
       .from('submissions')
       .select('challenge_id, score_earned, hints_cost, first_blood, completed_at, difficulty_rating')
-      .eq('user_id', ctx.user.id)
+      .eq('user_id', ctx.user.id),
+    _supabase
+      .from('submissions')
+      .select('challenge_id, difficulty_rating')
+      .not('difficulty_rating', 'is', null)
   ]);
 
   const allChallenges = challengesRes.data  || [];
   const submissions   = submissionsRes.data || [];
+
+  // Community difficulty: avg rating per challenge (only shown with ≥2 raters)
+  const communityDiffRaw = {};
+  (communityDiffRes.data || []).forEach(s => {
+    if (!communityDiffRaw[s.challenge_id]) communityDiffRaw[s.challenge_id] = { sum: 0, count: 0 };
+    communityDiffRaw[s.challenge_id].sum   += s.difficulty_rating;
+    communityDiffRaw[s.challenge_id].count += 1;
+  });
+  const communityDiff = {};
+  Object.entries(communityDiffRaw).forEach(([id, { sum, count }]) => {
+    if (count >= 2) communityDiff[id] = { avg: Math.round(sum / count), count };
+  });
   const REVIEW_DAYS   = 90;
 
   // Submission lookup: challenge_id → most recent submission
@@ -257,7 +273,12 @@ function escHtml(str) {
         : '';
 
       const diffRow = (done && sub.difficulty_rating)
-        ? `<div style="margin-top:4px;">${starsHtml(sub.difficulty_rating)}</div>`
+        ? `<div style="margin-top:4px;">${starsHtml(sub.difficulty_rating)} <span style="font-size:10px;color:var(--text-muted);">your rating</span></div>`
+        : '';
+
+      const cd = communityDiff[ch.id];
+      const communityDiffRow = cd
+        ? `<div style="margin-top:3px;">${starsHtml(cd.avg)} <span style="font-size:10px;color:var(--text-muted);">community (${cd.count})</span></div>`
         : '';
 
       card.innerHTML = `
@@ -265,7 +286,7 @@ function escHtml(str) {
         <div class="challenge-card-info">
           <div class="challenge-card-title">${escHtml(ch.title)}</div>
           <div class="challenge-card-meta">${pts} pts · ${(ch.questions||[]).length} question${(ch.questions||[]).length!==1?'s':''}</div>
-          ${tagsRow}${diffRow}
+          ${tagsRow}${diffRow}${communityDiffRow}
         </div>
         <div class="challenge-card-right">
           ${done ? (() => {

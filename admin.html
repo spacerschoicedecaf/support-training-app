@@ -313,11 +313,19 @@
         <h2>All Challenges</h2>
         <span class="text-muted text-sm" id="ch-count"></span>
       </div>
+      <!-- Bulk action bar (hidden until rows are checked) -->
+      <div id="bulk-action-bar" style="display:none;padding:10px 16px;background:var(--accent-subtle);border-bottom:1px solid var(--border);display:none;align-items:center;gap:10px;">
+        <span id="bulk-selected-count" style="font-size:12px;font-family:var(--font-mono);color:var(--text-link);"></span>
+        <button class="btn btn-secondary btn-sm" id="btn-bulk-activate">Activate</button>
+        <button class="btn btn-secondary btn-sm" id="btn-bulk-deactivate">Deactivate</button>
+        <button class="btn btn-ghost btn-sm" id="btn-bulk-clear" style="margin-left:auto;">Clear selection</button>
+      </div>
       <div class="table-wrap">
         <div id="ch-table-loading" class="loading-state"><div class="spinner"></div></div>
         <table id="ch-table" class="hidden">
           <thead>
             <tr>
+              <th style="width:32px;"><input type="checkbox" id="ch-select-all" title="Select all" style="cursor:pointer;accent-color:var(--accent);"></th>
               <th>ID</th><th>Title</th><th>Points</th><th>Status</th><th>Actions</th>
             </tr>
           </thead>
@@ -743,13 +751,34 @@ function renumberList(listId, labelPrefix) {
   // Store the full challenge list for preview lookups
   let _challengeCache = [];
 
+  function updateBulkBar() {
+    const checked = document.querySelectorAll('.ch-select:checked');
+    const bar = document.getElementById('bulk-action-bar');
+    if (checked.length > 0) {
+      bar.style.display = 'flex';
+      document.getElementById('bulk-selected-count').textContent = `${checked.length} selected`;
+    } else {
+      bar.style.display = 'none';
+    }
+    const all = document.querySelectorAll('.ch-select');
+    const selectAll = document.getElementById('ch-select-all');
+    if (selectAll) selectAll.indeterminate = checked.length > 0 && checked.length < all.length;
+    if (selectAll) selectAll.checked = all.length > 0 && checked.length === all.length;
+  }
+
   function renderChallengeTable(challenges) {
     _challengeCache = challenges;
     const tbody = document.getElementById('ch-tbody');
     tbody.innerHTML = '';
+    // Reset select-all and bulk bar
+    const selectAll = document.getElementById('ch-select-all');
+    if (selectAll) { selectAll.checked = false; selectAll.indeterminate = false; }
+    document.getElementById('bulk-action-bar').style.display = 'none';
+
     challenges.forEach(ch => {
       const tr = document.createElement('tr');
       tr.innerHTML = `
+        <td style="width:32px;"><input type="checkbox" class="ch-select" data-id="${escHtml(ch.id)}" style="cursor:pointer;accent-color:var(--accent);"></td>
         <td class="td-mono">${escHtml(ch.id)}</td>
         <td>${escHtml(ch.title)}</td>
         <td class="td-mono">${(ch.questions||[]).reduce((s,q)=>s+(q.points||0),0)}</td>
@@ -769,6 +798,14 @@ function renumberList(listId, labelPrefix) {
         </td>
       `;
       tbody.appendChild(tr);
+    });
+
+    tbody.querySelectorAll('.ch-select').forEach(cb =>
+      cb.addEventListener('change', updateBulkBar));
+
+    document.getElementById('ch-select-all').addEventListener('change', e => {
+      document.querySelectorAll('.ch-select').forEach(cb => cb.checked = e.target.checked);
+      updateBulkBar();
     });
 
     tbody.querySelectorAll('.toggle-pill').forEach(btn =>
@@ -810,6 +847,25 @@ function renumberList(listId, labelPrefix) {
     challengesLoaded = false;
     await loadChallenges();
   }
+
+  async function bulkSetActive(activate) {
+    const ids = [...document.querySelectorAll('.ch-select:checked')].map(cb => cb.dataset.id);
+    if (!ids.length) return;
+    const { error } = await _supabase.from('challenges').update({ active: activate }).in('id', ids);
+    if (error) { showGlobalAlert('Bulk update failed: ' + error.message, 'danger'); return; }
+    showGlobalAlert(`${ids.length} challenge${ids.length !== 1 ? 's' : ''} ${activate ? 'activated' : 'deactivated'}.`);
+    challengesLoaded = false;
+    await loadChallenges();
+  }
+
+  document.getElementById('btn-bulk-activate').addEventListener('click', () => bulkSetActive(true));
+  document.getElementById('btn-bulk-deactivate').addEventListener('click', () => bulkSetActive(false));
+  document.getElementById('btn-bulk-clear').addEventListener('click', () => {
+    document.querySelectorAll('.ch-select').forEach(cb => cb.checked = false);
+    const sa = document.getElementById('ch-select-all');
+    if (sa) { sa.checked = false; sa.indeterminate = false; }
+    updateBulkBar();
+  });
 
   async function deleteChallenge(id, title) {
     if (!confirm(`Delete "${title}" (${id})?\n\nAlso removes all submissions. Cannot be undone.`)) return;
