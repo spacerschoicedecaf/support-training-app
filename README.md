@@ -1,17 +1,13 @@
 # STURNUS
 ### Simulated Ticket Utility for Root-cause Navigation and User Support
 
-A CTF-style technical support training app. Trainees work through realistic support tickets, investigate server logs and MongoDB data, and answer diagnostic questions to earn points on a live leaderboard.
+A CTF-style technical support training platform. Trainees work through realistic support tickets, investigate server logs and MongoDB data, and answer diagnostic questions to earn points on a live leaderboard.
 
 Also available as **V.H.S. (Virtual Helpdesk Simulator)** at [bekind.support](https://bekind.support) — same codebase, different audience, retro video store theme.
 
 ---
 
-## What It Does
-
-Each challenge presents a real support scenario: a customer ticket, server logs, and a live MongoDB query console. Trainees must read the incident, identify red herrings, investigate evidence, use hints strategically, and work through a series of diagnostic questions. After submitting, a debrief explains why each answer was right or wrong. A post-solve reflection captures difficulty rating and notes for spaced repetition.
-
-Scores persist on a leaderboard that is fully isolated by theme — STURNUS users only ever see STURNUS scores, V.H.S. users only see V.H.S. scores. Neither audience knows the other platform exists.
+**Status page:** [stats.uptimerobot.com/ALJJrQPvyA](https://stats.uptimerobot.com/ALJJrQPvyA)
 
 ---
 
@@ -24,245 +20,145 @@ Scores persist on a leaderboard that is fully isolated by theme — STURNUS user
 | Hosting | Vercel (static files + one serverless function) |
 | Email | Resend (SMTP relay for magic links and invites) |
 
-No build process. Local development: `python3 -m http.server 8000`
-
 ---
 
-## Feature Overview
+## Features
 
 ### Challenge flow
 
-- **Incident scenario** — collapsible section with the narrative context
-- **Customer ticket** — verbatim escalation text
-- **Architecture context** — tech stack overview, starts collapsed
-- **Observed data points** — mix of real and irrelevant evidence; part of the challenge is identifying what actually matters
-- **Server log viewer** — structured JSON logs in a modal with syntax highlighting and download button
-- **MongoDB query console** — simulated Atlas shell: `show collections`, `db.X.findOne()`, `db.X.find({})`, with export to JSON
-- **Hints** — escalating specificity; first hint is always free, subsequent hints cost points deducted from your score
-- **Multi-question progressive reveal** — questions unlock one at a time; each has a Check Answer button and an explanation in the debrief
+Each challenge presents a structured incident investigation:
+
+- **Incident scenario** — narrative context describing what was happening and when
+- **Customer ticket** — verbatim escalation text with urgency and business impact
+- **Architecture context** — customer's tech stack overview, starts collapsed
+- **Red herrings** — observed data points that look suspicious but aren't the cause; identifying them is part of the challenge
+- **Server log viewer** — multi-file structured JSON logs with syntax highlighting and copy button
+- **MongoDB query console** — simulated Atlas shell supporting `show collections`, `db.X.findOne()`, `db.X.find({filter})`, projections, and `$and`/`$or` operators; supports multi-database setups; tab-autocomplete for collection names; ↑/↓ command history
+- **Hints** — escalating specificity; first hint is always free, subsequent hints cost points deducted from score
+- **Multi-question progressive reveal** — questions unlock one at a time; each has a Check Answer button and an explanation on the debrief
+- **Reasoning textarea** — optional free-text field per question to capture your thinking before checking; not scored
 - **Score preview** — live counter showing potential score minus hint penalties
-- **Answer shuffling** — options are randomized on every load so the correct answer is never in a predictable position
+- **Answer shuffling** — options randomize on every load so the correct answer is never in a predictable position
+- **Solve timer** — visible elapsed time with pause/play; auto-pauses when you switch tabs or windows; persists across navigation so you can't cheat by refreshing
 - **Debrief panel** — score breakdown per question with explanation text after submission
+- **Walkthrough** — collapsible post-solve section showing one way to approach the case; written to be suggestive rather than prescriptive
+- **Private notes** — per-challenge scratchpad saved to the database; visible only to you; persists across sessions
+- **Keyboard shortcuts** — `?` opens a shortcuts modal; `h` reveals next hint; `s` submits if all questions are answered
 
 ### Post-solve reflection
 
 After submitting, a post-mortem panel appears:
 
-- **Difficulty rating** — 1–5 stars (Very easy → Very hard); cumulative hover preview shows all stars up to the hovered value
-- **Notes field** — free-text reflection: what would you check first next time? what was misleading?
+- **Difficulty rating** — 1–5 stars (Very easy → Very hard) with cumulative hover preview
+- **Notes field** — free-text reflection; what would you check first next time?
 - Saved to the database; visible to admins in the Reflections tab
 
 ### Badges
 
-Three badges can appear on solved challenge cards and in case history:
-
-- **✓ Solved** — always shown on completed challenges
-- **Initial Response** — awarded to the first user to solve a challenge; antenna icon
+- **✓ Solved** — shown on all completed challenge cards
+- **Initial Response** — awarded to the first user to solve a challenge
 - **Hint-free** — completed without unlocking any hints
+
+### Challenge list
+
+- Challenges split into Unsolved and Solved sections with counts
+- Sort by ID (curriculum order) or by Points (highest first)
+- Tag filter — click any skill tag to filter the list
+- Text search — filters by title across both sections
+- Community difficulty rating shown on each card (average of all user ratings)
+- Recommended next challenge appears after solving
 
 ### Leaderboard
 
-- Shows top 20 users by score, filtered to the current theme
-- Admins are excluded
-- Your own entry is highlighted
-- Ranked 1st, 2nd, 3rd entries get gold, silver, bronze colors
+- Top 20 users by score, filtered to the current theme
+- Admins excluded
+- Your own entry highlighted
+- Gold/silver/bronze colors for top 3
 
 ### Profile page
 
-Accessible by clicking your handle in the nav from any page:
-
-- **Stats strip** — total score, leaderboard rank, cases solved, hint-free count
-- **Case history** — table of all solved challenges with score earned, badges, and date; each row links back to the challenge
-- **Change handle** — validated, checks uniqueness, updates nav live without page reload
+- **Stats strip** — total score, leaderboard rank, cases solved, hint-free count, current streak
+- **Leaderboard** — full theme leaderboard in the right column
+- **Case history** — all solved challenges with score, badges, and date; each row links back to the challenge
+- **Change handle** — validates uniqueness, updates nav live
 - **Change password** — with confirmation field
+
+### MongoDB reference
+
+A dedicated reference page (`/mongo-reference.html`) covering query syntax, operators, projections, and common patterns. Linked from the query console.
 
 ### Dual theme system
 
-A single codebase and Supabase project serves two audiences:
+One codebase and one Supabase project serves two audiences:
 
 - **STURNUS** — restricted to `@murmuration.org` emails, amber/green palette, pixel starling
 - **V.H.S.** (`bekind.support`) — open registration, magenta/cyan palette, pixel VHS cassette
 
-Theme is auto-assigned on signup by email domain and controls colors, brand name, icon, and leaderboard scope. Hostname detection applies the correct theme before first paint using a blocking `<link>` tag to prevent flash. Admins can manually reassign themes from the All Scores tab.
+Theme is auto-assigned on signup by email domain. Leaderboards are fully isolated — neither audience knows the other platform exists. Hostname detection applies the theme before first paint to prevent flash.
 
 ### Variant challenge rotation
 
-Challenges can be grouped into **variant groups** — multiple challenges with the same root cause but different synthetic data (different company names, log timestamps, MongoDB ObjectIds). Variants rotate on a 90-day cooldown:
+Challenges can be grouped into **variant groups** — multiple challenges covering the same root cause with different synthetic data (company names, timestamps, ObjectIds). Rotation works on a 90-day cooldown:
 
-- A user completes a challenge → the whole group hides for 90 days
-- After 90 days, a **different variant** surfaces as a Review challenge
-- Already-solved challenges always remain visible in the Solved section
-- Direct URL access to non-active variants shows a locked message
-
-### Sorting and organization
-
-The challenge list has two sort modes (toggle buttons at the top):
-
-- **By ID** — default, preserves intended curriculum order
-- **By Points** — highest value first, useful for score-hunting
-
-Challenges are split into Unsolved and Solved sections with counts.
+- A user solves a challenge → the whole group hides for 90 days
+- After 90 days, a different variant surfaces as a Review challenge
+- Already-solved challenges remain visible in the Solved section
+- Direct URL access to a non-active variant shows a locked message
 
 ---
 
 ## Admin Features
 
-### Invite Users tab
-
-Send a magic-link invite by email. The recipient sets their handle and optional password on first click. Invite emails are sent via the `/api/invite` Vercel serverless function using the service role key, which never touches the client. Disable email signups in the Supabase dashboard to enforce invite-only access.
+Admins access `/admin.html`. Non-admins are redirected.
 
 ### Challenges tab
 
-**Add / Edit** — full form for all challenge fields. Required: ID, title, scenario, ticket quote, server logs filename, server logs JSON, MongoDB collections JSON, hints JSON, questions JSON. Optional: Variant Group slug, skill tags JSON.
+**Add / Edit** — form covering all challenge fields: ID, title, scenario, ticket quote, architecture context, red herrings, server logs (multi-file), MongoDB collections (multi-database), hints, questions, walkthrough, estimated solve time, skill tags, intended difficulty, and variant group.
 
-**Skill tags** — freeform tags displayed on the challenge page (e.g. `["log-analysis","smtp","mongodb"]`). Shown as badges under the challenge title to set expectations about what skills the challenge tests.
+**Import** — paste a JSON array of challenges (or upload a `.json` file) to bulk-import. Validates structure, detects ID conflicts, and lets you rename placeholder IDs before saving. All imported challenges default to inactive.
 
-**Duplicate** — copies all fields from an existing challenge with a suggested new ID (e.g. TICKET-001-B). Timestamps shift back 30–90 days randomly and MongoDB ObjectIds are regenerated. Starts inactive. Primary workflow for creating variant challenges: duplicate, swap identifying details, set the same Variant Group slug, activate when ready.
+**Challenge table** — sortable by ID, title, difficulty, community rating, or solves. Shows variant group badge, intended difficulty, community difficulty rating, and solve count per challenge.
 
-**Force Variant** — visible on any challenge with a Variant Group set. Back-dates all group submissions to 92 days ago so the next variant appears immediately for all users. Use this to test rotation without waiting 90 days.
+**Preview** — opens a read-only preview of the challenge as users see it, including walkthrough and estimated time.
 
-**Toggle Active/Inactive** — hide challenges without deleting them.
+**Duplicate** — copies all fields with a suggested new ID, shifts timestamps back 30–90 days randomly, regenerates MongoDB ObjectIds. Starts inactive. Primary workflow for creating variants: duplicate → swap identifying details → set same Variant Group slug → activate.
+
+**Force Variant** — back-dates all group submissions to 92 days ago so the next variant appears immediately. Use to test rotation without waiting 90 days.
+
+**Toggle Active/Inactive** — hide challenges without deleting.
+
+**Bulk activate/deactivate** — checkbox-select multiple challenges and activate or deactivate in one click.
+
+**Reset my attempt** — clears your own submission, hints, and start record for a specific challenge. Useful for testing without affecting other users.
 
 **Delete** — permanent; cascades to submissions and hint unlocks.
 
-### All Scores tab
+### Users tab
 
 Lists all users across both themes with handle, theme badge, score, and challenges solved count.
 
-**Switch Theme** — move a user between STURNUS and V.H.S. Takes effect on their next page load.
+- **Switch Theme** — move a user between STURNUS and V.H.S.
+- **Reset Scores** — wipes score, deletes all submissions and hint unlocks. Disabled for users with no activity.
 
-**Reset Scores** — wipes score to 0, deletes all submissions and hint unlocks. Disabled for users with no activity.
+### Analytics tab
+
+Per-challenge stats: solve count, average score, average time-to-solve, hint unlock rate, and average community difficulty rating. Useful for spotting challenges that are too hard, too easy, or where hints aren't helping.
 
 ### Reflections tab
 
-Lists all submitted post-mortems with handle, challenge ID, difficulty rating, and reflection text. Useful for gauging which challenges are too hard, too easy, or confusing.
+All submitted post-mortems with handle, challenge ID, difficulty rating, and reflection text. Use to gauge which challenges are confusing or need rebalancing.
+
+### Invite Users tab
+
+Send a magic-link invite by email. The recipient sets their handle on first click. Sent via `/api/invite` (Vercel serverless) using the service role key, which never touches the client. Disable email signups in the Supabase dashboard to enforce invite-only access.
 
 ---
 
-## Deliberate Tradeoffs
+## Challenge Generator Skill
 
-These are known limitations that were consciously left in place:
+A Claude skill (`sturnus-challenge-generator.skill`) guides you through turning a real support incident into a training challenge. It asks for the incident, root cause, a red herring, and the teaching goal — then produces a plain-English review and an import-ready JSON array you can paste directly into the bulk import panel.
 
-**No staging environment.** Changes go straight to production. The admin Reset Scores button and Force Variant button exist specifically so the builder can use their own account for testing without polluting the leaderboard permanently.
-
-**Theme assignment is client-enforced at signup, not server-enforced on every request.** A determined user could modify a request to assign themselves the wrong theme. This is acceptable because the two audiences are trust-based communities, not adversarial ones.
-
-**Answer shuffle happens client-side.** A user could inspect the shuffled DOM to reverse-engineer the original option order. The shuffle exists to prevent muscle memory and pattern matching, not to prevent cheating — the challenges are open-book by design.
-
-**Supabase anon key is in client JS.** This is intentional and safe — Supabase documents this pattern. All access control is enforced by Row Level Security policies on the database. The anon key is not a secret.
-
-**Service role key is Vercel-only.** The invite function (`/api/invite`) requires the service role key, which is set as a Vercel environment variable and never appears in any client-accessible file. Invites cannot be sent from a local dev environment.
-
-**No email verification on VHS.** Anyone can register with any email on the V.H.S. side. STURNUS verifies domain client-side at profile creation. Neither enforces email verification through Supabase's confirm email flow.
-
-**Challenge content is stored as JSON in Postgres, not normalized.** This makes the admin form simpler (paste JSON) but means there's no structured query path into individual questions or hints. A future migration could normalize questions into their own table for analytics.
-
----
-
-## Manual Test Plan
-
-### Auth flow
-
-| Test | Expected |
-|------|----------|
-| Visit any protected page while logged out | Redirect to login.html |
-| Request magic link → click link in email | Land on profile.html setup form |
-| Complete setup with a valid handle | Redirect to index.html |
-| Visit profile.html when already set up | Load profile dashboard, not setup form |
-| Sign out | Redirect to login.html |
-| Non-murmuration email on STURNUS domain | Error: "restricted to murmuration.org" |
-| Duplicate handle on signup | Error: "handle already taken" |
-
-### Challenge list (index.html)
-
-| Test | Expected |
-|------|----------|
-| Unsolved challenges appear in Unsolved section | ✓ |
-| Solved challenges move to Solved section | ✓ |
-| Sort by Points — highest first | ✓ |
-| Sort by ID — TICKET-001, TICKET-002, etc. | ✓ |
-| Solved badge shows ✓ Solved | ✓ |
-| Initial Response badge shows on first-blood solve | ✓ |
-| Hint-free badge shows when no hints were unlocked | ✓ |
-| Leaderboard excludes admins | ✓ |
-| Leaderboard only shows same-theme users | ✓ |
-
-### Challenge page
-
-| Test | Expected |
-|------|----------|
-| Architecture context and red herrings start collapsed | ✓ |
-| Clicking section label toggles collapse | ✓ |
-| `show collections` in mongo terminal lists collection names | ✓ |
-| `db.X.findOne()` returns first document with syntax | ✓ |
-| `db.X.find({})` returns all documents with count | ✓ |
-| Unknown collection name returns MongoNamespaceError | ✓ |
-| Export JSON button downloads last query result | ✓ |
-| First hint shows as "Free" / Reveal button | ✓ |
-| Unlocking a paid hint deducts points from score preview | ✓ |
-| Already-unlocked hints show text on reload | ✓ |
-| Questions are locked until previous question is checked | ✓ |
-| Selecting an option enables Check answer | ✓ |
-| Checking answer reveals explanation and unlocks next question | ✓ |
-| Submit all appears only after all questions checked | ✓ |
-| Debrief panel shows per-question breakdown and hint penalty | ✓ |
-| First blood alert appears if you were first | ✓ |
-| Reload after submission shows answered state | ✓ |
-| Answer options in a different order on each fresh load | ✓ (shuffle) |
-| Variant-locked challenge shows locked message, not challenge | ✓ |
-
-### Post-solve reflection
-
-| Test | Expected |
-|------|----------|
-| Reflection panel appears after submission | ✓ |
-| Hovering star 3 highlights stars 1, 2, 3 | ✓ |
-| Clicking star 4 locks in stars 1–4 (stays after mouse leaves) | ✓ |
-| Save post-mortem → "Saved." feedback | ✓ |
-| Reload page → saved rating and text restored | ✓ |
-| Reflection appears in admin Reflections tab | ✓ |
-
-### Profile page
-
-| Test | Expected |
-|------|----------|
-| Click handle in nav → profile dashboard | ✓ |
-| Stats reflect actual score and submission count | ✓ |
-| Rank matches leaderboard position | ✓ |
-| Case history shows all solved challenges | ✓ |
-| Each history row links to the challenge | ✓ |
-| First blood and hint-free badges appear in history | ✓ |
-| Change handle → nav updates immediately | ✓ |
-| Duplicate handle → "already taken" error | ✓ |
-| Change password → confirm mismatch → error | ✓ |
-| Change password → valid → success message | ✓ |
-
-### Admin features
-
-| Test | Expected |
-|------|----------|
-| Non-admin visiting admin.html | Redirect to index.html |
-| Admin nav score shows 999 pts | ✓ |
-| Invite sends email and invite link works | ✓ |
-| Add challenge with all fields → appears in list | ✓ |
-| Edit existing challenge → changes saved | ✓ |
-| Toggle inactive → challenge hidden from users | ✓ |
-| Duplicate → new challenge pre-filled, timestamps shifted | ✓ |
-| Force Variant → variant appears on index for test user | ✓ |
-| Delete challenge → gone from list and user submissions | ✓ |
-| Reset Scores → user score 0, history empty | ✓ |
-| Switch Theme → user appears on other theme's leaderboard | ✓ |
-| Reflections tab shows submitted post-mortems | ✓ |
-
-### Dual theme / VHS
-
-| Test | Expected |
-|------|----------|
-| Visit bekind.support → VHS theme (magenta/cyan) | ✓ |
-| Visit STURNUS domain → STURNUS theme (amber/green) | ✓ |
-| Reload any page → no flash between themes | ✓ |
-| VHS leaderboard contains only VHS users | ✓ |
-| STURNUS user cannot see VHS leaderboard | ✓ |
+Install the skill in Claude Cowork → Settings → Capabilities → Skills. See the admin guide (`/guide.html`) for usage instructions.
 
 ---
 
@@ -276,25 +172,58 @@ python3 -m http.server 8000
 # visit http://localhost:8000/splash.html
 ```
 
-The admin invite feature requires Vercel deployment (needs service role key). Everything else works locally.
+The admin invite feature requires Vercel deployment (the `/api/invite` function needs the service role key as an env var). Everything else works locally.
 
 ---
 
 ## Database Setup
 
-Run migrations in Supabase SQL Editor in order:
+Migrations are managed by `migrate.js` — a Node.js script that tracks what's been applied and runs only what's new.
 
-1. `schema.sql`
-2. `migrate-questions.sql`
-3. `migrate-theme.sql`
-4. `migrate-admin-reset.sql`
-5. `migrate-variant-groups.sql`
-6. `migrate-force-variant.sql`
-7. `migrate-reflection.sql`
-8. `migrate-tags-firstblood.sql`
-9. `seed-challenges.sql`
+**First, add your database connection string to `.env`:**
 
-Then promote yourself to admin:
+```
+DATABASE_URL=postgresql://postgres:[PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres
+```
+
+Find it in Supabase → Settings → Database → Connection string → URI.
+
+**Fresh database:**
+```bash
+npm install
+npm run migrate        # runs all 13 migrations in order
+```
+
+**Existing database (first time setting up the runner):**
+```bash
+npm install
+npm run migrate:baseline   # marks existing migrations as applied without re-running
+npm run migrate:status     # confirm all show ✓
+```
+
+**Going forward** — add new SQL files to `migrations/` with the next number prefix (e.g. `0014_my-change.sql`) and run `npm run migrate`.
+
+**Seed data** — run `seed-challenges.sql` manually in the Supabase SQL Editor after migrating.
+
+**Promote yourself to admin:**
 ```sql
 UPDATE profiles SET role = 'admin' WHERE handle = 'your-handle';
 ```
+
+---
+
+## Deliberate Tradeoffs
+
+**No staging environment.** Changes go straight to production. The admin Reset Scores and Force Variant buttons exist so the builder can use their own account for testing without permanently polluting the leaderboard.
+
+**Theme assignment is client-enforced at signup, not server-enforced per request.** A determined user could assign themselves the wrong theme. Acceptable because both audiences are trust-based communities.
+
+**Answer shuffle is client-side.** A user could inspect the DOM to find the original option order. The shuffle prevents muscle memory and pattern matching, not cheating — challenges are open-book by design.
+
+**Supabase anon key is in client JS.** Intentional and safe. Supabase documents this pattern. All access control is enforced by Row Level Security. The anon key is not a secret.
+
+**Service role key is Vercel-only.** The invite function requires it; it's set as a Vercel environment variable and never appears in any client-accessible file.
+
+**No email verification on VHS.** Anyone can register with any email on the V.H.S. side. STURNUS verifies domain client-side at profile creation.
+
+**Challenge content stored as JSON in Postgres, not normalized.** Simpler admin form (paste JSON) but no structured query path into individual questions or hints without parsing. A future migration could normalize questions into their own table for richer analytics.
