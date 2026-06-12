@@ -1509,6 +1509,7 @@ function renumberList(listId, labelPrefix) {
       }
       const ch = _importParsed[idx];
       const primaryLog = (ch.log_files && ch.log_files.length) ? ch.log_files[0] : { filename: 'server-logs.json', logs: [] };
+      if (!primaryLog.filename) primaryLog.filename = 'server-logs.json';
       rows.push({
         ...ch,
         id: newId,
