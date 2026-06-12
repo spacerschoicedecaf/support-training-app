@@ -599,11 +599,13 @@ function qsAll(s) { return document.querySelectorAll(s); }
 
     btn.addEventListener('click', () => timerPaused ? resumeTimer() : pauseTimer());
 
-    // Auto-pause when tab is hidden, auto-resume when visible again
+    // Auto-pause when leaving the page (tab switch or app switch), resume on return
     document.addEventListener('visibilitychange', () => {
       if (submitted) return;
       document.hidden ? pauseTimer() : resumeTimer();
     });
+    window.addEventListener('blur',  () => { if (!submitted) pauseTimer(); });
+    window.addEventListener('focus', () => { if (!submitted) resumeTimer(); });
   }
 
   function stopTimerUI() {
