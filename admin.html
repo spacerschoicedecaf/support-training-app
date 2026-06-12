@@ -1085,6 +1085,7 @@ function renumberList(listId, labelPrefix) {
             <button class="row-menu-item btn-preview-ch" data-id="${escHtml(ch.id)}">Preview</button>
             <button class="row-menu-item btn-edit-ch" data-id="${escHtml(ch.id)}">Edit</button>
             <button class="row-menu-item btn-duplicate-ch" data-id="${escHtml(ch.id)}">Duplicate</button>
+            <button class="row-menu-item btn-export-ch" data-id="${escHtml(ch.id)}">Export JSON</button>
             ${ch.variant_group ? `<button class="row-menu-item btn-force-variant" data-group="${escHtml(ch.variant_group)}">Force Variant</button>` : ''}
             <div class="row-menu-divider"></div>
             <button class="row-menu-item btn-reset-attempt" data-id="${escHtml(ch.id)}" data-title="${escHtml(ch.title)}">Reset my attempt</button>
@@ -1133,6 +1134,39 @@ function renumberList(listId, labelPrefix) {
         else showGlobalAlert(`Variant forced for group "${group}".`);
       });
     });
+
+    tbody.querySelectorAll('.btn-export-ch').forEach(btn =>
+      btn.addEventListener('click', async () => {
+        closeAllRowMenus();
+        const { data: ch, error } = await _supabase.from('challenges').select('*').eq('id', btn.dataset.id).single();
+        if (error || !ch) { showGlobalAlert('Export failed: ' + (error?.message || 'not found'), 'danger'); return; }
+        // Shape matches import format: use log_files, drop server_logs legacy fields
+        const exportObj = {
+          id:               ch.id,
+          title:            ch.title,
+          difficulty:       ch.difficulty,
+          active:           ch.active,
+          variant_group:    ch.variant_group,
+          est_minutes:      ch.est_minutes,
+          tags:             ch.tags,
+          scenario:         ch.scenario,
+          ticket_quote:     ch.ticket_quote,
+          arch_context:     ch.arch_context,
+          red_herrings:     ch.red_herrings,
+          log_files:        ch.log_files,
+          screenshots:      ch.screenshots,
+          mongo_collections: ch.mongo_collections,
+          hints:            ch.hints,
+          questions:        ch.questions,
+          walkthrough:      ch.walkthrough,
+        };
+        const blob = new Blob([JSON.stringify([exportObj], null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `${ch.id}.json`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+      }));
 
     tbody.querySelectorAll('.btn-duplicate-ch').forEach(btn =>
       btn.addEventListener('click', () => { closeAllRowMenus(); duplicateChallenge(btn.dataset.id, challenges); }));
