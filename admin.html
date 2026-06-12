@@ -216,10 +216,10 @@
   <!-- ── Tab: Challenges ─────────────────────────────────────────────────── -->
   <div id="tab-challenges" class="tab-panel">
 
-    <div class="form-panel" id="challenge-form-panel">
+    <div class="form-panel" id="challenge-form-panel" style="display:none;">
       <div class="form-panel-header">
         <h3 id="form-panel-title">Add New Challenge</h3>
-        <button class="btn btn-ghost btn-sm" id="btn-reset-form">Clear</button>
+        <button class="btn btn-ghost btn-sm" id="btn-reset-form">Cancel</button>
       </div>
       <div class="form-panel-body">
         <input type="hidden" id="f-edit-id">
@@ -336,7 +336,10 @@
     <div class="card">
       <div class="card-header">
         <h2>All Challenges</h2>
-        <span class="text-muted text-sm" id="ch-count"></span>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <span class="text-muted text-sm" id="ch-count"></span>
+          <button class="btn btn-primary btn-sm" id="btn-new-challenge">＋ New Challenge</button>
+        </div>
       </div>
       <!-- Search / filter bar -->
       <div style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
@@ -1055,7 +1058,7 @@ function renumberList(listId, labelPrefix) {
     renderQuestionsBuilder(ch.questions || []);
 
     document.getElementById('btn-save-challenge').textContent = 'Update challenge';
-    document.getElementById('challenge-form-panel').scrollIntoView({ behavior: 'smooth' });
+    showChallengeForm();
   }
 
   function nextTicketId() {
@@ -1087,7 +1090,24 @@ function renumberList(listId, labelPrefix) {
     document.getElementById('form-save-feedback').innerHTML   = '';
   }
 
-  document.getElementById('btn-reset-form').addEventListener('click', resetForm);
+  function showChallengeForm() {
+    document.getElementById('challenge-form-panel').style.display = '';
+    document.getElementById('challenge-form-panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function hideChallengeForm() {
+    document.getElementById('challenge-form-panel').style.display = 'none';
+  }
+
+  document.getElementById('btn-new-challenge').addEventListener('click', () => {
+    resetForm();
+    showChallengeForm();
+  });
+
+  document.getElementById('btn-reset-form').addEventListener('click', () => {
+    resetForm();
+    hideChallengeForm();
+  });
 
   // Initialise builders with one empty item each
   resetForm();
@@ -1177,7 +1197,8 @@ function renumberList(listId, labelPrefix) {
 
     fb.innerHTML = `<div class="alert alert-success" style="margin:0;padding:8px 12px;">
       <p>${isEdit ? 'Updated' : 'Created'} ${escHtml(id)} ✓</p></div>`;
-    if (!isEdit) resetForm();
+    setTimeout(() => hideChallengeForm(), 800);
+    resetForm();
     challengesLoaded = false;
     await loadChallenges();
   });
@@ -1241,7 +1262,7 @@ function renumberList(listId, labelPrefix) {
 
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === 'challenges'));
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-challenges'));
-    document.getElementById('challenge-form-panel').scrollIntoView({ behavior: 'smooth' });
+    showChallengeForm();
 
     showGlobalAlert(`Duplicated ${id} → ${newId}. Timestamps and ObjectIds randomized. Review and swap company/person names before saving.`);
   }
