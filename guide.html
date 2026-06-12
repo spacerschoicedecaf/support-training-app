@@ -164,6 +164,9 @@
         <a href="#writing-hints" class="sub">Hints</a>
         <a href="#mongo-data" class="sub">MongoDB data</a>
         <a href="#log-files" class="sub">Log files</a>
+        <a href="#generating">Generating with Claude</a>
+        <a href="#skill-usage" class="sub">Using the skill</a>
+        <a href="#bulk-import" class="sub">Bulk import</a>
         <a href="#contribute">Contributing</a>
         <a href="#local-dev" class="sub">Local dev</a>
         <a href="#deploy" class="sub">Deploying</a>
@@ -266,6 +269,40 @@
         <h3 id="log-files">Log files</h3>
         <p>Log files are shown in a syntax-highlighted modal. Include 1–2 log files per challenge as JSON arrays of log entries. Each entry should have at minimum <code>ts</code> (ISO timestamp), <code>level</code> (<code>info</code>/<code>warn</code>/<code>error</code>), and <code>msg</code>. Add relevant fields (e.g. <code>session_id</code>, <code>user_id</code>, <code>path</code>) to make queries meaningful.</p>
         <p>The most effective log files show a pattern over time — a warning escalating to errors, or a cascade starting with an unrelated-looking event.</p>
+
+        <!-- Generating with Claude -->
+        <h2 id="generating">Generating Challenges with Claude</h2>
+        <p>The fastest way to create new challenges is to use the <strong>sturnus-challenge-generator</strong> Claude skill. It walks you through a short interview — based on a real incident you've seen — and produces a complete, import-ready challenge in one session. No JSON editing required until you want to fine-tune.</p>
+
+        <h3 id="skill-usage">Using the skill</h3>
+        <p>Open a new conversation in Claude (the desktop app or claude.ai) and type something like: <em>"I want to create a STURNUS challenge"</em>. The skill will take over and guide you step by step.</p>
+        <p>Here's what it will ask:</p>
+        <ol class="step-list">
+          <li><strong>How many?</strong> You can generate 1, 2, or 3 challenges in one go. Generating 2–3 at once is great for creating escalating-difficulty variants of the same incident type.</li>
+          <li><strong>Difficulty.</strong> Easy, medium, hard — or escalating across a batch. See the <a href="#writing-questions">Writing Questions</a> section for what each level means.</li>
+          <li><strong>For each challenge, your real example.</strong> Paste the actual ticket, Slack thread, log snippet, or error message you want to base the challenge on. The more specific this is, the more realistic the generated evidence will feel. Don't worry about formatting — paste it raw.</li>
+          <li><strong>Root cause.</strong> One sentence: what was the actual answer? This is what the trainee should arrive at after working through the evidence.</li>
+          <li><strong>Red herring.</strong> Optional, but highly recommended. Something that looked suspicious at the time but wasn't the cause — a recent deploy, a CPU spike, a config change. Good red herrings make challenges significantly more interesting.</li>
+          <li><strong>Teaching goal.</strong> What should the trainee walk away knowing? This shapes the question explanations and walkthrough.</li>
+        </ol>
+        <p>After collecting your inputs, the skill will ask you to confirm before generating. The output has two parts:</p>
+        <ul style="margin:8px 0 8px 20px;line-height:1.8;">
+          <li><strong>Readable review</strong> — plain English summary of each challenge. Read this carefully. Check that the log messages match your stack, the MongoDB collection names are plausible, and the red herrings make sense in context.</li>
+          <li><strong>Import-ready JSON array</strong> — a code block you copy directly into the admin import panel. IDs are set to <code>TICKET-XXXX</code> placeholders by default; the importer will prompt you to set real IDs before saving.</li>
+        </ul>
+
+        <h3 id="bulk-import">Bulk import</h3>
+        <p>The Challenges tab has an <strong>⬆ Import</strong> button next to New Challenge. Use it to import the JSON the skill generated.</p>
+        <ol class="step-list">
+          <li>Copy the JSON array from Claude (the second block in the output, starting with <code>[{</code>).</li>
+          <li>In the admin panel, open the Challenges tab and click <strong>⬆ Import</strong>.</li>
+          <li>Paste the JSON into the text area and click <strong>Parse →</strong>. You can also upload a <code>.json</code> file directly.</li>
+          <li>A preview table appears showing each challenge. Review it — you can edit IDs (required if any show a red <em>conflict</em> badge), and toggle Active per challenge.</li>
+          <li>Click <strong>Import challenges</strong>. All imported challenges default to inactive — go to the table and activate them when they're ready for users.</li>
+        </ol>
+        <div class="guide-callout" style="margin-top:16px;">
+          <strong>Review before activating.</strong> The skill produces realistic but synthetic evidence. Double-check that log timestamps, MongoDB field names, and error messages are consistent with how your systems actually behave. Small adjustments in the admin form go a long way toward making challenges feel authentic.
+        </div>
 
         <!-- Contributing -->
         <h2 id="contribute">Contributing</h2>
