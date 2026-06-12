@@ -280,7 +280,7 @@
                      border-radius:var(--radius);padding:8px 10px;color:var(--text-primary);"></textarea>
           </div>
           <div style="display:flex;flex-direction:column;gap:8px;padding-top:2px;">
-            <button class="btn btn-secondary btn-sm" id="btn-parse-import">Parse →</button>
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-parse-import">Parse →</button>
             <label class="btn btn-ghost btn-sm" style="cursor:pointer;text-align:center;">
               Upload .json
               <input type="file" id="import-file-input" accept=".json" style="display:none;">
@@ -1364,6 +1364,17 @@ function renumberList(listId, labelPrefix) {
       return;
     }
 
+    try {
+      _parseImportInner(parsed, errEl, prevEl);
+    } catch(e) {
+      console.error('parseImport error:', e);
+      errEl.textContent = 'Unexpected error: ' + e.message;
+      errEl.style.display = '';
+    }
+  }
+
+  function _parseImportInner(parsed, errEl, prevEl) {
+
     if (!Array.isArray(parsed)) parsed = [parsed]; // tolerate single object
 
     // Validate each
@@ -1380,7 +1391,7 @@ function renumberList(listId, labelPrefix) {
 
     // Auto-assign IDs to TICKET-XXXX placeholders
     const existingNums = _challengeCache
-      .map(c => { const m = c.id.match(/^TICKET-(\d+)$/i); return m ? parseInt(m[1]) : 0; })
+      .map(c => { const m = (c.id || '').match(/^TICKET-(\d+)$/i); return m ? parseInt(m[1]) : 0; })
       .filter(n => n > 0);
     let nextNum = existingNums.length ? Math.max(...existingNums) + 1 : 1;
     parsed = parsed.map(ch => {
@@ -1442,7 +1453,7 @@ function renumberList(listId, labelPrefix) {
       `${parsed.length} challenge${parsed.length !== 1 ? 's' : ''} ready to review`;
     prevEl.style.display = '';
     document.getElementById('import-confirm-feedback').textContent = '';
-  }
+  } // end _parseImportInner
 
   document.getElementById('btn-confirm-import').addEventListener('click', async () => {
     const tbody  = document.getElementById('import-preview-tbody');
