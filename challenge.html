@@ -448,6 +448,7 @@ function qsAll(s) { return document.querySelectorAll(s); }
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 (async () => {
+  const _returnedAt = Date.now(); // capture before any awaits — used to exclude page load time from away calculation
   const ctx = await Auth.requireAuth();
   if (!ctx) return;
 
@@ -562,7 +563,7 @@ function qsAll(s) { return document.querySelectorAll(s); }
     if (_awayRaw) {
       try {
         const { leftAt } = JSON.parse(_awayRaw);
-        if (leftAt) timerPausedMs += Math.max(0, Date.now() - leftAt);
+        if (leftAt) timerPausedMs += Math.max(0, _returnedAt - leftAt);
       } catch(e) {}
       localStorage.removeItem(_awayKey);
     }
