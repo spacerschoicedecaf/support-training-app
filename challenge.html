@@ -248,6 +248,15 @@
     <!-- ── Right: Analysis Column ──────────────────────────────────────────── -->
     <div class="right-panel">
 
+      <!-- Solve timer (hidden once submitted) -->
+      <div id="solve-timer-card" class="score-preview" style="display:none;align-items:center;justify-content:space-between;">
+        <span style="font-family:var(--font-mono);font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;">Time</span>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span id="solve-timer-display" style="font-family:var(--font-mono);font-size:17px;font-weight:700;color:var(--text-primary);letter-spacing:1px;">0:00</span>
+          <button id="solve-timer-btn" title="Pause timer" style="background:none;border:none;cursor:pointer;padding:2px 4px;color:var(--text-muted);font-size:13px;line-height:1;" aria-label="Pause timer">⏸</button>
+        </div>
+      </div>
+
       <!-- Score preview -->
       <div class="score-preview">
         <span>Potential score</span>
@@ -324,6 +333,17 @@
 
   </div>
 </div><!-- /page-content -->
+
+<!-- ── Post-solve Walkthrough ─────────────────────────────────────────────── -->
+<div id="walkthrough-section" class="hidden" style="max-width:1200px;margin:0 auto 32px;padding:0 24px;">
+  <div class="card">
+    <div class="card-header" id="walkthrough-toggle" style="cursor:pointer;user-select:none;" title="Click to expand/collapse">
+      <h2>One way to approach this <span style="font-size:10px;font-weight:normal;color:var(--text-muted);margin-left:6px;" id="walkthrough-chevron">▾</span></h2>
+      <span id="walkthrough-est" style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono);"></span>
+    </div>
+    <div class="card-body" id="walkthrough-body" style="white-space:pre-wrap;font-size:13px;line-height:1.7;color:var(--text-secondary);padding:16px;"></div>
+  </div>
+</div>
 
 <!-- ── Log Viewer Modal ───────────────────────────────────────────────────── -->
 <div class="modal-backdrop" id="logs-modal">
@@ -527,6 +547,65 @@ function qsAll(s) { return document.querySelectorAll(s); }
     const { data: startedAt } = await _supabase.rpc('record_challenge_start', { p_challenge_id: ch.id });
     if (startedAt) pageLoadTime = new Date(startedAt).getTime();
   }
+
+  // ── Visible solve timer ────────────────────────────────────────────────────
+  // Tracks elapsed ms, accounting for pauses.
+  let timerPaused    = false;
+  let timerPausedAt  = null;   // Date.now() when pause started
+  let timerPausedMs  = 0;      // total ms spent paused
+  let timerInterval  = null;
+
+  function getElapsedMs() {
+    const pausedSoFar = timerPaused ? (Date.now() - timerPausedAt) : 0;
+    return Date.now() - pageLoadTime - timerPausedMs - pausedSoFar;
+  }
+
+  function fmtTimer(ms) {
+    const totalSec = Math.max(0, Math.floor(ms / 1000));
+    const mins = Math.floor(totalSec / 60);
+    const secs = totalSec % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  }
+
+  function startTimerUI() {
+    if (submitted) return;
+    const timerCard = qs('#solve-timer-card');
+    const display   = qs('#solve-timer-display');
+    const btn       = qs('#solve-timer-btn');
+    timerCard.style.display = 'flex';
+
+    timerInterval = setInterval(() => {
+      if (!timerPaused) display.textContent = fmtTimer(getElapsedMs());
+    }, 500);
+
+    btn.addEventListener('click', () => {
+      if (!timerPaused) {
+        // Pause
+        timerPaused   = true;
+        timerPausedAt = Date.now();
+        btn.textContent   = '▶';
+        btn.title         = 'Resume timer';
+        btn.setAttribute('aria-label', 'Resume timer');
+      } else {
+        // Resume
+        timerPausedMs += Date.now() - timerPausedAt;
+        timerPaused    = false;
+        timerPausedAt  = null;
+        btn.textContent   = '⏸';
+        btn.title         = 'Pause timer';
+        btn.setAttribute('aria-label', 'Pause timer');
+      }
+    });
+  }
+
+  function stopTimerUI() {
+    clearInterval(timerInterval);
+    timerInterval = null;
+    const timerCard = qs('#solve-timer-card');
+    if (timerCard) timerCard.style.display = 'none';
+  }
+
+  if (!submitted) startTimerUI();
 
   // ── Populate static content ────────────────────────────────────────────────
 
@@ -789,6 +868,16 @@ function qsAll(s) { return document.querySelectorAll(s); }
       </div>`;
     }
 
+    // Reasoning textarea — only while question is active (unlocked, not yet checked)
+    let reasoningHtml = '';
+    if (!locked && !state.checked && !submitted) {
+      reasoningHtml = `
+        <div class="reasoning-field" style="margin-top:14px;">
+          <label for="reasoning-${qi}" style="display:block;font-size:11px;font-family:var(--font-mono);color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;">Your reasoning <span style="font-weight:400;opacity:.7;">(optional, not scored)</span></label>
+          <textarea id="reasoning-${qi}" rows="2" placeholder="What's your thinking here?" style="width:100%;font-size:12px;font-family:var(--font-sans);resize:vertical;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius);padding:7px 9px;color:var(--text-primary);line-height:1.5;"></textarea>
+        </div>`;
+    }
+
     return `<div class="${blockClass}" id="qblock-${qi}">
       <div class="question-block-header">
         <span class="q-label">${escHtml(q.label || `Question ${qi + 1}`)}</span>
@@ -799,6 +888,7 @@ function qsAll(s) { return document.querySelectorAll(s); }
           ${escHtml(q.question)}
         </p>
         <div class="mcq-options">${optionsHtml}</div>
+        ${reasoningHtml}
         ${actionHtml}
         ${explanationHtml}
       </div>
@@ -936,7 +1026,8 @@ function qsAll(s) { return document.querySelectorAll(s); }
       updateScorePreview();
     }
 
-    const solveMs = Date.now() - pageLoadTime;
+    const solveMs = getElapsedMs();
+    stopTimerUI();
     showDebrief(data.graded, data.score_earned, solveMs);
     if (data.first_blood) showGlobalAlert('Initial Response — you solved this case before anyone else.');
     initReflection(null, null);
@@ -1083,6 +1174,35 @@ function qsAll(s) { return document.querySelectorAll(s); }
 
     // Recommended next challenge (non-blocking)
     loadNextChallenge(body);
+
+    // Show walkthrough if one exists
+    showWalkthrough();
+  }
+
+  function showWalkthrough() {
+    if (!ch.walkthrough) return;
+    const section  = qs('#walkthrough-section');
+    const bodyEl   = qs('#walkthrough-body');
+    const estEl    = qs('#walkthrough-est');
+    const chevron  = qs('#walkthrough-chevron');
+    const toggle   = qs('#walkthrough-toggle');
+    const cardBody = qs('#walkthrough-body');
+
+    bodyEl.textContent = ch.walkthrough;
+    if (ch.est_minutes) {
+      estEl.textContent = `~${ch.est_minutes} min`;
+    }
+
+    section.classList.remove('hidden');
+    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    // Collapse/expand toggle
+    let open = true;
+    toggle.addEventListener('click', () => {
+      open = !open;
+      cardBody.style.display = open ? '' : 'none';
+      chevron.textContent = open ? '▾' : '▸';
+    });
   }
 
   async function loadNextChallenge(container) {

@@ -162,7 +162,7 @@
     <span class="nav-dot">·</span>
     <span class="badge badge-warning">admin</span>
   </div>
-  <a href="guide.html" class="nav-link">Guide</a>
+  <a href="guide.html" class="nav-link" target="_blank" rel="noopener">Guide</a>
   <a href="index.html" class="nav-link">← App</a>
   <button class="nav-link" id="nav-logout">Sign out</button>
 </nav>
@@ -312,6 +312,16 @@
         <div class="form-group">
           <label for="f-tags">Skill Tags <span class="label-hint">JSON array, e.g. ["log-analysis","smtp"]</span></label>
           <input type="text" id="f-tags" placeholder='["log-analysis","smtp","mongodb"]' class="mono-input">
+        </div>
+
+        <div class="form-group">
+          <label for="f-walkthrough">Walkthrough <span class="label-hint">optional — one way to approach this; shown after submission</span></label>
+          <textarea id="f-walkthrough" rows="4" placeholder="Start by checking the logs for the timeframe reported. Notice the spike in…"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="f-est-minutes">Estimated Time <span class="label-hint">minutes — how long a competent engineer should take</span></label>
+          <input type="number" id="f-est-minutes" min="1" max="120" placeholder="15" style="max-width:100px;">
         </div>
 
         <div class="form-group">
@@ -1046,6 +1056,8 @@ function renumberList(listId, labelPrefix) {
     document.getElementById('f-red-herrings').value       = JSON.stringify(ch.red_herrings || [], null, 2);
     document.getElementById('f-mongo-collections').value  = JSON.stringify(ch.mongo_collections || [], null, 2);
     document.getElementById('f-tags').value               = ch.tags ? JSON.stringify(ch.tags) : '[]';
+    document.getElementById('f-walkthrough').value        = ch.walkthrough || '';
+    document.getElementById('f-est-minutes').value        = ch.est_minutes || '';
     document.getElementById('f-variant-group').value      = ch.variant_group || '';
     document.getElementById('f-active').checked           = ch.active;
 
@@ -1079,6 +1091,8 @@ function renumberList(listId, labelPrefix) {
       document.getElementById(id).value = '';
     });
     document.getElementById('f-tags').value          = '[]';
+    document.getElementById('f-walkthrough').value   = '';
+    document.getElementById('f-est-minutes').value   = '';
     document.getElementById('f-variant-group').value = '';
     document.getElementById('f-active').checked      = true;
 
@@ -1173,6 +1187,8 @@ function renumberList(listId, labelPrefix) {
       questions,
       hints,
       tags:         (() => { try { return JSON.parse(document.getElementById('f-tags').value || '[]'); } catch(e) { return []; } })(),
+      walkthrough:   document.getElementById('f-walkthrough').value.trim() || null,
+      est_minutes:   parseInt(document.getElementById('f-est-minutes').value) || null,
       variant_group: document.getElementById('f-variant-group').value.trim() || null,
       active:        document.getElementById('f-active').checked
     };
@@ -1250,6 +1266,8 @@ function renumberList(listId, labelPrefix) {
     document.getElementById('f-arch').value     = ch.arch_context;
     document.getElementById('f-red-herrings').value      = JSON.stringify(ch.red_herrings || [], null, 2);
     document.getElementById('f-mongo-collections').value = JSON.stringify(randomizedMongo, null, 2);
+    document.getElementById('f-walkthrough').value        = ch.walkthrough || '';
+    document.getElementById('f-est-minutes').value        = ch.est_minutes || '';
     document.getElementById('f-variant-group').value     = ch.variant_group || '';
     document.getElementById('f-active').checked          = false;
 
