@@ -15,17 +15,43 @@ const Auth = (() => {
     return session ? session.user : null;
   }
 
+  const _PROFILE_CACHE_KEY = 'sturnus_profile_v1';
+  const _PROFILE_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+  function _getCachedProfile(userId) {
+    try {
+      const raw = sessionStorage.getItem(_PROFILE_CACHE_KEY);
+      if (!raw) return null;
+      const { ts, data } = JSON.parse(raw);
+      if (data.id !== userId || Date.now() - ts > _PROFILE_CACHE_TTL) return null;
+      return data;
+    } catch { return null; }
+  }
+
+  function _setCachedProfile(data) {
+    try { sessionStorage.setItem(_PROFILE_CACHE_KEY, JSON.stringify({ ts: Date.now(), data })); } catch {}
+  }
+
+  function bustProfileCache() {
+    try { sessionStorage.removeItem(_PROFILE_CACHE_KEY); } catch {}
+  }
+
   async function getProfile(userId) {
+    const cached = _getCachedProfile(userId);
+    if (cached) return cached;
+
     const { data, error } = await _supabase
       .from('profiles')
       .select('*')
       .eq('id', userId)
       .single();
     if (error) return null;
+    _setCachedProfile(data);
     return data;
   }
 
   async function signOut() {
+    bustProfileCache();
     await _supabase.auth.signOut();
     window.location.href = 'login.html';
   }
@@ -115,5 +141,6 @@ const Auth = (() => {
     redirectIfLoggedIn,
     populateNav,
     getAccessToken,
+    bustProfileCache,
   };
 })();

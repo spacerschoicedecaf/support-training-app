@@ -79,10 +79,9 @@
 
   script.src = 'https://unpkg.com/@grafana/faro-web-sdk@^1.0.0/dist/bundle/faro-web-sdk.iife.js';
 
-  // async=false keeps the load synchronous-ish relative to other head scripts.
-  // The SDK is small (~50KB gzipped) and loads fast; this ensures errors on
-  // the very first page render are captured rather than missed during async load.
-  script.async = false;
+  // async=true — non-blocking. Sentry handles early error capture; Faro is
+  // RUM-only and doesn't need to block page load.
+  script.async = true;
 
   document.head.appendChild(script);
 
