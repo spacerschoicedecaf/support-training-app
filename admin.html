@@ -1853,6 +1853,12 @@ function renumberList(listId, labelPrefix) {
       parts.push(section('MongoDB Collections', colList));
     }
 
+    // Walkthrough
+    if (ch.walkthrough) {
+      const estLabel = ch.est_minutes ? `<span style="font-family:var(--font-mono);font-size:11px;color:var(--text-muted);margin-left:8px;">~${ch.est_minutes} min</span>` : '';
+      parts.push(section('Walkthrough' + estLabel, `<p style="white-space:pre-wrap;font-size:13px;color:var(--text-secondary);line-height:1.7;">${escH(ch.walkthrough)}</p>`));
+    }
+
     // Tags
     if ((ch.tags||[]).length) {
       const tagHtml = ch.tags.map(t => `<span style="padding:2px 7px;border:1px solid var(--border);border-radius:10px;font-size:11px;">${escH(t)}</span>`).join(' ');
