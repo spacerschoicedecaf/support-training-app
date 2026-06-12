@@ -1,6 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script
+    src="https://js.sentry-cdn.com/ee0a6f84ec25094902afa74d02dce7af.min.js"
+    crossorigin="anonymous"
+  ></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Challenge — STURNUS</title>
@@ -433,28 +437,26 @@
 <script src="js/themes.js"></script>
 <script src="js/auth.js"></script>
 <script type="module">
-import { unwrap, getPath, matchesFilter, applySort, applyProjection, extractParens, parseTwoJsonArgs, parseCommand } from './js/mongo-engine.js';
-// ── Helpers ─────────────────────────────────────────────────────────────────
-
-function escHtml(str) {
-  return String(str)
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
-    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
-function qs(sel)  { return document.querySelector(sel); }
-function qsAll(s) { return document.querySelectorAll(s); }
+// ── Modules ──────────────────────────────────────────────────────────────────
+import { escHtml, qs }   from './js/challenge-utils.js';
+import { createTimer }   from './js/timer.js';
+import { initNotes }     from './js/notes.js';
+import { initReflection } from './js/reflection.js';
+import { initLogViewer } from './js/log-viewer.js';
+import { initHints }     from './js/hints.js';
+import { initQuestions } from './js/questions.js';
+import { initTerminal }  from './js/terminal.js';
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 (async () => {
-  const _returnedAt = Date.now(); // capture before any awaits — used to exclude page load time from away calculation
+  const _returnedAt = Date.now(); // capture before any awaits — used to exclude page-load time from away calculation
   const ctx = await Auth.requireAuth();
   if (!ctx) return;
 
   Auth.populateNav(ctx.profile);
 
-  const params = new URLSearchParams(window.location.search);
+  const params      = new URLSearchParams(window.location.search);
   const challengeId = params.get('id');
 
   if (!challengeId) { showError(); return; }
@@ -532,112 +534,32 @@ function qsAll(s) { return document.querySelectorAll(s); }
     }
   }
 
-  const ch          = chRes.data;
-  const submission  = subRes.data || null;   // null if not submitted yet
-  const unlockedSet = new Set((hintsRes.data || []).map(h => h.hint_index));
-  let   hintsCost   = (hintsRes.data || []).reduce((s, h) => s + h.cost, 0);
-  let   submitted   = !!submission;
+  const ch           = chRes.data;
+  const submission   = subRes.data || null;  // null if not submitted yet
   const existingNote = noteRes?.data?.note_text || '';
 
-  // ── Time-to-solve tracking ────────────────────────────────────────────────
-  // Use DB-persisted started_at so timer survives page navigation / snack breaks.
-  // Falls back to Date.now() if the RPC fails or user is already submitted.
-  let pageLoadTime = Date.now();
+  // Shared state — passed by reference to modules
+  const state = {
+    submitted: !!submission,
+    hintsCost: (hintsRes.data || []).reduce((s, h) => s + h.cost, 0),
+  };
 
-  if (!submitted) {
+  // ── Timer module ──────────────────────────────────────────────────────────
+  let pageLoadTime = Date.now();
+  if (!state.submitted) {
     const { data: startedAt } = await _supabase.rpc('record_challenge_start', { p_challenge_id: ch.id });
     if (startedAt) pageLoadTime = new Date(startedAt).getTime();
   }
 
-  // ── Visible solve timer ────────────────────────────────────────────────────
-  // Tracks elapsed ms, accounting for pauses.
-  let timerPaused    = false;
-  let timerPausedAt  = null;   // Date.now() when pause started
-  let timerPausedMs  = 0;      // total ms spent paused
+  const timer = createTimer({
+    challengeId:  ch.id,
+    userId:       ctx.user.id,
+    pageLoadTime,
+    returnedAt:   _returnedAt,
+    getSubmitted: () => state.submitted,
+  });
 
-  // Recover time spent navigating away and back.
-  // On beforeunload we save the departure timestamp; here we add the gap.
-  const _awayKey = `sturnus_away_${ch.id}_${ctx.user.id}`;
-  if (!submitted) {
-    const _awayRaw = localStorage.getItem(_awayKey);
-    if (_awayRaw) {
-      try {
-        const { leftAt } = JSON.parse(_awayRaw);
-        if (leftAt) timerPausedMs += Math.max(0, _returnedAt - leftAt);
-      } catch(e) {}
-      localStorage.removeItem(_awayKey);
-    }
-  }
-  let timerInterval  = null;
-
-  function getElapsedMs() {
-    const pausedSoFar = timerPaused ? (Date.now() - timerPausedAt) : 0;
-    return Date.now() - pageLoadTime - timerPausedMs - pausedSoFar;
-  }
-
-  function fmtTimer(ms) {
-    const totalSec = Math.max(0, Math.floor(ms / 1000));
-    const mins = Math.floor(totalSec / 60);
-    const secs = totalSec % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  }
-
-  function startTimerUI() {
-    if (submitted) return;
-    const timerCard = qs('#solve-timer-card');
-    const display   = qs('#solve-timer-display');
-    const btn       = qs('#solve-timer-btn');
-    timerCard.style.display = 'flex';
-
-    timerInterval = setInterval(() => {
-      if (!timerPaused) display.textContent = fmtTimer(getElapsedMs());
-    }, 500);
-
-    function pauseTimer() {
-      if (timerPaused) return;
-      timerPaused   = true;
-      timerPausedAt = Date.now();
-      btn.textContent = '▶';
-      btn.title       = 'Resume timer';
-      btn.setAttribute('aria-label', 'Resume timer');
-    }
-
-    function resumeTimer() {
-      if (!timerPaused) return;
-      timerPausedMs += Date.now() - timerPausedAt;
-      timerPaused    = false;
-      timerPausedAt  = null;
-      btn.textContent = '⏸';
-      btn.title       = 'Pause timer';
-      btn.setAttribute('aria-label', 'Pause timer');
-    }
-
-    btn.addEventListener('click', () => timerPaused ? resumeTimer() : pauseTimer());
-
-    // Auto-pause when leaving the page (tab switch or app switch), resume on return
-    document.addEventListener('visibilitychange', () => {
-      if (submitted) return;
-      document.hidden ? pauseTimer() : resumeTimer();
-    });
-    window.addEventListener('blur',  () => { if (!submitted) pauseTimer(); });
-    window.addEventListener('focus', () => { if (!submitted) resumeTimer(); });
-
-    // Record departure time so we can exclude navigation-away time on return
-    window.addEventListener('beforeunload', () => {
-      if (!submitted) {
-        localStorage.setItem(_awayKey, JSON.stringify({ leftAt: Date.now() }));
-      }
-    });
-  }
-
-  function stopTimerUI() {
-    clearInterval(timerInterval);
-    timerInterval = null;
-    const timerCard = qs('#solve-timer-card');
-    if (timerCard) timerCard.style.display = 'none';
-  }
-
-  if (!submitted) startTimerUI();
+  if (!state.submitted) timer.start();
 
   // ── Populate static content ────────────────────────────────────────────────
 
@@ -725,898 +647,114 @@ function qsAll(s) { return document.querySelectorAll(s); }
   // ── Score preview ──────────────────────────────────────────────────────────
 
   function updateScorePreview() {
-    const potential = Math.max(totalPts - hintsCost, 0);
+    const potential = Math.max(totalPts - state.hintsCost, 0);
     qs('#score-preview-val').textContent = potential + ' pts';
-    const spentEl = qs('#hints-spent-label');
-    spentEl.textContent = hintsCost > 0 ? `-${hintsCost} pts in hints` : '';
+    qs('#hints-spent-label').textContent = state.hintsCost > 0 ? `-${state.hintsCost} pts in hints` : '';
   }
   updateScorePreview();
 
-  // ── Hints ──────────────────────────────────────────────────────────────────
+  // ── Hints module ───────────────────────────────────────────────────────────
 
-  const hintsListEl = qs('#hints-list');
+  const hints = initHints({
+    challenge:    ch,
+    ctx,
+    getSubmitted: () => state.submitted,
+    onUnlocked:   newCost => {
+      state.hintsCost = newCost;
+      updateScorePreview();
+    },
+  });
+  hints.seed(
+    new Set((hintsRes.data || []).map(h => h.hint_index)),
+    state.hintsCost
+  );
 
-  function renderHints() {
-    hintsListEl.innerHTML = '';
-    ch.hints.forEach((hint, i) => {
-      const unlocked = unlockedSet.has(i);
-      const div = document.createElement('div');
-      div.className = 'hint-item';
+  // ── Log viewer module ─────────────────────────────────────────────────────
 
-      if (unlocked || submitted) {
-        div.innerHTML = `
-          <div class="hint-unlocked${hint.cost === 0 ? ' free' : ''}">
-            <div class="hint-number">Hint ${i + 1}</div>
-            ${escHtml(hint.text)}
-          </div>
-        `;
-      } else {
-        div.innerHTML = `
-          <div class="hint-locked">
-            <span class="hint-locked-label">Hint ${i + 1}</span>
-            <div style="display:flex;align-items:center;gap:8px;">
-              <span class="hint-cost${hint.cost === 0 ? ' free' : ''}">
-                ${hint.cost === 0 ? 'Free' : `-${hint.cost} pts`}
-              </span>
-              <button class="btn btn-ghost btn-sm" data-hint-idx="${i}" data-hint-cost="${hint.cost}">
-                ${hint.cost === 0 ? 'Reveal' : 'Unlock'}
-              </button>
-            </div>
-          </div>
-        `;
-      }
+  const logViewer = initLogViewer({ logFiles });
 
-      hintsListEl.appendChild(div);
-    });
+  // ── Questions module ──────────────────────────────────────────────────────
 
-    // Attach unlock listeners
-    hintsListEl.querySelectorAll('[data-hint-idx]').forEach(btn => {
-      btn.addEventListener('click', () => unlockHint(parseInt(btn.dataset.hintIdx), parseInt(btn.dataset.hintCost)));
-    });
-  }
+  const q = initQuestions({
+    challenge:    ch,
+    ctx,
+    getSubmitted: () => state.submitted,
+    submission,
+    getHintsCost: () => state.hintsCost,
+    onSubmitClick: async (answers) => {
+      const { data, error } = await _supabase.rpc('submit_challenge', {
+        p_challenge_id: ch.id,
+        p_answers:      answers,
+      });
 
-  async function unlockHint(idx, cost) {
-    if (submitted) return;
-
-    const currentScore = ctx.profile.role === 'admin' ? 999 : ctx.profile.score - hintsCost;
-    if (cost > 0 && currentScore < cost) {
-      alert('Not enough points to unlock this hint.');
-      return;
-    }
-
-    const { data, error } = await _supabase.rpc('unlock_hint', {
-      p_challenge_id: ch.id,
-      p_hint_index:   idx,
-      p_cost:         cost
-    });
-
-    if (error || !data.success) {
-      if (data && data.error === 'Already unlocked') {
-        unlockedSet.add(idx);
-        renderHints();
+      if (error || !data.success) {
+        const msg = data?.error || error?.message || 'Submission failed';
+        qs('#btn-submit-all').disabled = false;
+        qs('#btn-submit-all').textContent = 'Submit all answers';
+        alert(msg);
         return;
       }
-      alert(data?.error || error?.message || 'Failed to unlock hint');
-      return;
-    }
 
-    unlockedSet.add(idx);
-    hintsCost += cost;
+      state.submitted = true;
 
-    // Update nav score
-    if (data.new_score !== undefined) {
-      qs('#nav-score').textContent = data.new_score.toLocaleString() + ' pts';
-      ctx.profile.score = data.new_score;
-    }
-
-    updateScorePreview();
-    renderHints();
-  }
-
-  renderHints();
-
-  // ── Multi-question progressive reveal ─────────────────────────────────────
-
-  const letters = ['A','B','C','D'];
-
-  // Shuffle answer options so the correct answer isn't always in the same slot.
-  // Stores a shuffle map (displayIndex → originalIndex) for grading.
-  function shuffleQuestion(q) {
-    const opts = [...q.options];
-    const map  = opts.map((_, i) => i); // map[displayIdx] = originalIdx
-    for (let i = opts.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [opts[i], opts[j]] = [opts[j], opts[i]];
-      [map[i],  map[j]]  = [map[j],  map[i]];
-    }
-    const newCorrect = map.indexOf(q.correct_option);
-    return { ...q, options: opts, correct_option: newCorrect, _shuffle_map: map };
-  }
-
-  const questions = (ch.questions || []).map(shuffleQuestion);
-  const container = qs('#questions-container');
-  const btnSubmitAll = qs('#btn-submit-all');
-
-  // Track per-question state: selected option (-1 = none), checked (bool)
-  const qState = questions.map(() => ({ selected: -1, checked: false }));
-  let   allChecked = false;
-
-  // Rebuild progress label
-  function updateProgress() {
-    const done = qState.filter(s => s.checked).length;
-    qs('#q-progress').textContent = `${done}/${questions.length} answered`;
-  }
-
-  // Render a single question block
-  function renderQuestion(qi) {
-    const q       = questions[qi];
-    const state   = qState[qi];
-    const isFirst = qi === 0;
-    const prevChecked = qi === 0 || qState[qi - 1].checked;
-    const locked  = submitted ? false : !prevChecked;
-
-    let blockClass = 'question-block';
-    if (locked)         blockClass += ' locked';
-    if (state.checked)  blockClass += state.selected === q.correct_option ? ' answered-correct' : ' answered-wrong';
-    if (!state.checked && !submitted) blockClass += ' q-collapsed';
-
-    const pts = q.points || 0;
-
-    let optionsHtml = q.options.map((opt, oi) => {
-      let cls = 'mcq-option';
-      if (state.checked || submitted) {
-        cls += ' disabled';
-        if (oi === q.correct_option) cls += ' correct';
-        else if (oi === state.selected && oi !== q.correct_option) cls += ' wrong';
-      } else if (oi === state.selected) {
-        cls += ' selected';
+      if (data.new_score !== undefined) {
+        qs('#nav-score').textContent = data.new_score.toLocaleString() + ' pts';
+        updateScorePreview();
       }
-      return `<div class="${cls}" data-qi="${qi}" data-oi="${oi}">
-        <div class="mcq-radio"></div>
-        <span class="mcq-letter">${letters[oi]}</span>
-        <span class="mcq-label">${escHtml(opt)}</span>
-      </div>`;
-    }).join('');
 
-    // Explanation — show after check
-    let explanationHtml = '';
-    if ((state.checked || submitted) && q.explanation) {
-      const isCorrect = state.selected === q.correct_option;
-      explanationHtml = `
-        <div class="explanation-block visible ${isCorrect ? 'correct' : 'wrong'}">
-          <div class="explanation-label">${isCorrect ? '✓ Correct' : '✗ Incorrect'}</div>
-          ${escHtml(q.explanation)}
-        </div>`;
-    }
+      const solveMs = timer.getElapsedMs();
+      localStorage.removeItem(`sturnus_away_${ch.id}_${ctx.user.id}`);
+      timer.stop();
 
-    // Check/submit button per question
-    let actionHtml = '';
-    if (!state.checked && !submitted) {
-      actionHtml = `<div style="margin-top:12px;">
-        <button class="btn btn-secondary btn-sm" id="btn-check-${qi}"
-          ${state.selected === -1 ? 'disabled' : ''}>
-          Check answer
-        </button>
-      </div>`;
-    }
-
-    // Reasoning textarea — only while question is active (unlocked, not yet checked)
-    let reasoningHtml = '';
-    if (!locked && !state.checked && !submitted) {
-      reasoningHtml = `
-        <div class="reasoning-field" style="margin-top:14px;">
-          <label for="reasoning-${qi}" style="display:block;font-size:11px;font-family:var(--font-mono);color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;">Your reasoning <span style="font-weight:400;opacity:.7;">(optional, not scored)</span></label>
-          <textarea id="reasoning-${qi}" rows="2" placeholder="What's your thinking here?" style="width:100%;font-size:12px;font-family:var(--font-sans);resize:vertical;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius);padding:7px 9px;color:var(--text-primary);line-height:1.5;"></textarea>
-        </div>`;
-    }
-
-    return `<div class="${blockClass}" id="qblock-${qi}">
-      <div class="question-block-header">
-        <span class="q-label">${escHtml(q.label || `Question ${qi + 1}`)}</span>
-        <span class="q-pts">${pts} pts</span>
-      </div>
-      <div class="question-block-body">
-        <p style="font-size:14px;line-height:1.6;margin-bottom:12px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
-          ${escHtml(q.question)}
-        </p>
-        <div class="mcq-options">${optionsHtml}</div>
-        ${reasoningHtml}
-        ${actionHtml}
-        ${explanationHtml}
-      </div>
-    </div>`;
-  }
-
-  function renderAllQuestions() {
-    container.innerHTML = questions.map((_, i) => renderQuestion(i)).join('');
-    attachQuestionListeners();
-    updateProgress();
-    updateSubmitAllBtn();
-  }
-
-  function attachQuestionListeners() {
-    // Option selection
-    container.querySelectorAll('.mcq-option[data-qi]').forEach(el => {
-      if (!el.classList.contains('disabled')) {
-        el.addEventListener('click', () => {
-          const qi = parseInt(el.dataset.qi);
-          const oi = parseInt(el.dataset.oi);
-          if (qState[qi].checked || submitted) return;
-          qState[qi].selected = oi;
-          // Preserve expanded/collapsed state across re-render
-          const oldBlock = qs(`#qblock-${qi}`);
-          const wasCollapsed = oldBlock && oldBlock.classList.contains('q-collapsed');
-          oldBlock.outerHTML = renderQuestion(qi);
-          if (!wasCollapsed) {
-            const newBlock = qs(`#qblock-${qi}`);
-            if (newBlock) newBlock.classList.remove('q-collapsed');
-          }
-          attachQuestionListeners();
-          updateSubmitAllBtn();
-        });
-      }
-    });
-
-    // Check answer buttons
-    questions.forEach((_, qi) => {
-      const btn = qs(`#btn-check-${qi}`);
-      if (btn) {
-        btn.addEventListener('click', () => checkQuestion(qi));
-      }
-    });
-  }
-
-  function checkQuestion(qi) {
-    if (qState[qi].selected === -1 || qState[qi].checked) return;
-    qState[qi].checked = true;
-
-    // Rebuild this block, keeping it expanded since user is actively checking
-    const block = qs(`#qblock-${qi}`);
-    block.outerHTML = renderQuestion(qi);
-    const newBlock = qs(`#qblock-${qi}`);
-    if (newBlock) newBlock.classList.remove('q-collapsed');
-    attachQuestionListeners();
-
-    // If there's a next question, re-render it to unlock it
-    if (qi + 1 < questions.length) {
-      const nextBlock = qs(`#qblock-${qi + 1}`);
-      nextBlock.outerHTML = renderQuestion(qi + 1);
-      attachQuestionListeners();
-    }
-
-    updateProgress();
-    updateSubmitAllBtn();
-  }
-
-  function updateSubmitAllBtn() {
-    allChecked = qState.every(s => s.checked);
-    btnSubmitAll.style.display = allChecked && !submitted ? '' : 'none';
-    btnSubmitAll.disabled = false;
-    btnSubmitAll.textContent = 'Submit all answers';
-  }
-
-  // Initial render
-  if (submitted && submission?.answers) {
-    // Restore state from existing submission
-    (submission.answers || []).forEach(a => {
-      if (a.question_idx < qState.length) {
-        qState[a.question_idx].selected = a.selected_option;
-        qState[a.question_idx].checked  = true;
-      }
-    });
-  }
-
-  renderAllQuestions();
-
-  // Reflection state — declared here so setRating() can safely reference it
-  // regardless of whether we're restoring an existing submission or handling a fresh one
-  let selectedRating = 0;
-  const starLabels = ['', 'Very easy', 'Easy', 'About right', 'Hard', 'Very hard'];
-
-  // ── Private notes ──────────────────────────────────────────────────────────
-  initNotes(existingNote);
-
-  // If already fully submitted show debrief + reflection
-  if (submitted && submission) {
-    showDebrief(submission.answers || [], submission.score_earned);
-    initReflection(submission.reflection || null, submission.difficulty_rating || null);
-  }
-
-  // ── Submit all ─────────────────────────────────────────────────────────────
-
-  btnSubmitAll.addEventListener('click', async () => {
-    if (submitted) return;
-    btnSubmitAll.disabled = true;
-    btnSubmitAll.innerHTML = '<span class="spinner"></span> Submitting…';
-
-    // Convert shuffled display indices back to original DB indices for grading
-    const answers = qState.map((s, qi) => ({
-      question_idx:    qi,
-      selected_option: questions[qi]._shuffle_map
-        ? questions[qi]._shuffle_map[s.selected]
-        : s.selected
-    }));
-
-    const { data, error } = await _supabase.rpc('submit_challenge', {
-      p_challenge_id: ch.id,
-      p_answers:      answers
-    });
-
-    if (error || !data.success) {
-      const msg = data?.error || error?.message || 'Submission failed';
-      btnSubmitAll.disabled = false;
-      btnSubmitAll.textContent = 'Submit all answers';
-      alert(msg);
-      return;
-    }
-
-    submitted = true;
-    btnSubmitAll.style.display = 'none';
-
-    if (data.new_score !== undefined) {
-      qs('#nav-score').textContent = data.new_score.toLocaleString() + ' pts';
-      updateScorePreview();
-    }
-
-    const solveMs = getElapsedMs();
-    localStorage.removeItem(_awayKey);
-    stopTimerUI();
-    showDebrief(data.graded, data.score_earned, solveMs);
-    if (data.first_blood) showGlobalAlert('Initial Response — you solved this case before anyone else.');
-    initReflection(null, null);
+      q.showDebrief(data.graded, data.score_earned, solveMs);
+      initReflection({ challengeId: ch.id, existingReflection: null, existingRating: null });
+    },
   });
+  q.renderAll();
 
-  // ── Private notes ──────────────────────────────────────────────────────────
+  // ── Notes module ─────────────────────────────────────────────────────────
 
-  function initNotes(initialText) {
-    const textarea  = qs('#notes-text');
-    const statusEl  = qs('#notes-saved-label');
-    if (!textarea) return;
+  initNotes({ challengeId: ch.id, initialText: existingNote });
 
-    textarea.value = initialText || '';
+  // ── Restore solved state ─────────────────────────────────────────────────
 
-    let saveTimer = null;
-
-    async function saveNote() {
-      const text = textarea.value;
-      statusEl.textContent = 'Saving…';
-      const { error } = await _supabase.rpc('save_challenge_note', {
-        p_challenge_id: challengeId,
-        p_note_text:    text
-      });
-      if (error) {
-        statusEl.textContent = 'Save failed';
-        statusEl.style.color = 'var(--error, #e06c75)';
-      } else {
-        statusEl.textContent = 'Saved';
-        statusEl.style.color = 'var(--text-muted)';
-        setTimeout(() => { statusEl.textContent = ''; }, 2000);
-      }
-    }
-
-    textarea.addEventListener('input', () => {
-      clearTimeout(saveTimer);
-      statusEl.textContent = '…';
-      saveTimer = setTimeout(saveNote, 1200);
+  if (state.submitted && submission) {
+    q.showDebrief(submission.answers || [], submission.score_earned, null);
+    initReflection({
+      challengeId:         ch.id,
+      existingReflection:  submission.reflection || null,
+      existingRating:      submission.difficulty_rating || null,
     });
   }
 
-  // ── Post-solve reflection ───────────────────────────────────────────────────
+  // ── Terminal module ───────────────────────────────────────────────────────
 
-  function initReflection(existingReflection, existingRating) {
-    const panel = qs('#reflection-panel');
-    panel.classList.remove('hidden');
+  const term = initTerminal({ mongoCollections: ch.mongo_collections || [] });
 
-    // Restore existing values if re-viewing a solved challenge
-    if (existingReflection) qs('#reflection-text').value = existingReflection;
-    if (existingRating) setRating(existingRating);
+  // ── Global keyboard shortcuts ─────────────────────────────────────────────
 
-    // Star buttons — cumulative hover + click to lock in
-    const starBtns = [...qs('#star-rating').querySelectorAll('.star-btn')];
-    starBtns.forEach(btn => {
-      btn.addEventListener('mouseenter', () => {
-        const hVal = parseInt(btn.dataset.val);
-        starBtns.forEach(b => b.classList.toggle('star-hover', parseInt(b.dataset.val) <= hVal));
-      });
-      btn.addEventListener('click', () => setRating(parseInt(btn.dataset.val)));
-    });
-    qs('#star-rating').addEventListener('mouseleave', () => {
-      starBtns.forEach(b => b.classList.remove('star-hover'));
-    });
-
-    // Save
-    qs('#btn-save-reflection').addEventListener('click', async () => {
-      const text   = qs('#reflection-text').value.trim();
-      const rating = selectedRating || null;
-      const btn    = qs('#btn-save-reflection');
-      btn.disabled = true;
-      btn.textContent = 'Saving…';
-
-      const { data, error } = await _supabase.rpc('save_reflection', {
-        p_challenge_id:      ch.id,
-        p_reflection:        text || null,
-        p_difficulty_rating: rating
-      });
-
-      btn.disabled = false;
-      btn.textContent = 'Save post-mortem';
-
-      if (error || !data?.success) {
-        qs('#reflection-feedback').textContent = 'Could not save — ' + (data?.error || error?.message);
-      } else {
-        qs('#reflection-feedback').textContent = 'Saved.';
-        setTimeout(() => { qs('#reflection-feedback').textContent = ''; }, 3000);
-      }
-    });
-  }
-
-  function setRating(val) {
-    val = parseInt(val);
-    selectedRating = val;
-    qs('#star-rating').querySelectorAll('.star-btn').forEach(btn => {
-      btn.classList.toggle('active', parseInt(btn.dataset.val) <= val);
-    });
-    qs('#star-label').textContent = starLabels[val] || '—';
-  }
-
-  function showDebrief(graded, scoreEarned, solveMs) {
-    const panel = qs('#debrief-panel');
-    const body  = qs('#debrief-body');
-    panel.classList.add('visible');
-    qs('#debrief-total').textContent = scoreEarned.toLocaleString() + ' pts';
-
-    body.innerHTML = '';
-    (graded || []).forEach(g => {
-      const q = questions[g.question_idx];
-      if (!q) return;
-      const correct = g.correct;
-      const row = document.createElement('div');
-      row.className = 'debrief-row';
-      row.innerHTML = `
-        <span class="debrief-row-label">${escHtml(q.label || `Q${g.question_idx + 1}`)}</span>
-        <span class="debrief-row-result ${correct ? 'correct' : 'wrong'}">
-          ${correct ? `+${g.earned} pts` : `0 pts (${letters[g.correct_option]} was correct)`}
-        </span>
-      `;
-      body.appendChild(row);
-    });
-
-    if (hintsCost > 0) {
-      const row = document.createElement('div');
-      row.className = 'debrief-row';
-      row.innerHTML = `
-        <span class="debrief-row-label">Hint penalty</span>
-        <span class="debrief-row-result wrong">−${hintsCost} pts</span>
-      `;
-      body.appendChild(row);
-    }
-
-    // Time-to-solve row (only on fresh submission, not re-view)
-    if (solveMs != null) {
-      const mins = Math.floor(solveMs / 60000);
-      const secs = Math.floor((solveMs % 60000) / 1000);
-      const timeStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
-      const row = document.createElement('div');
-      row.className = 'debrief-row';
-      row.innerHTML = `
-        <span class="debrief-row-label">Time to solve</span>
-        <span class="debrief-row-result" style="color:var(--text-secondary);">${timeStr}</span>
-      `;
-      body.appendChild(row);
-    }
-
-    // Recommended next challenge (non-blocking)
-    loadNextChallenge(body);
-
-    // Show walkthrough if one exists
-    showWalkthrough();
-  }
-
-  function showWalkthrough() {
-    if (!ch.walkthrough) return;
-    const section  = qs('#walkthrough-section');
-    const bodyEl   = qs('#walkthrough-body');
-    const estEl    = qs('#walkthrough-est');
-    const chevron  = qs('#walkthrough-chevron');
-    const toggle   = qs('#walkthrough-toggle');
-    const cardBody = qs('#walkthrough-body');
-
-    bodyEl.textContent = ch.walkthrough;
-    if (ch.est_minutes) {
-      estEl.textContent = `~${ch.est_minutes} min`;
-    }
-
-    section.classList.remove('hidden');
-    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-    // Collapse/expand toggle
-    let open = true;
-    toggle.addEventListener('click', () => {
-      open = !open;
-      cardBody.style.display = open ? '' : 'none';
-      chevron.textContent = open ? '▾' : '▸';
-    });
-  }
-
-  async function loadNextChallenge(container) {
-    // Fetch all active challenges except this one
-    const [allRes, solvedRes] = await Promise.all([
-      _supabase.from('challenges').select('id, title, tags').eq('active', true).neq('id', ch.id),
-      _supabase.from('submissions').select('challenge_id').eq('user_id', ctx.user.id)
-    ]);
-    if (allRes.error || !allRes.data?.length) return;
-
-    const solvedIds = new Set((solvedRes.data || []).map(s => s.challenge_id));
-    const unsolved  = (allRes.data || []).filter(c => !solvedIds.has(c.id));
-    if (!unsolved.length) return;
-
-    // Prefer challenges sharing a tag with the current one
-    const myTags = new Set(ch.tags || []);
-    const withTag = unsolved.filter(c => (c.tags || []).some(t => myTags.has(t)));
-    const next    = withTag[0] || unsolved[0];
-
-    const card = document.createElement('div');
-    card.className = 'next-challenge-card';
-    const stars = next.difficulty ? '★'.repeat(next.difficulty) + '☆'.repeat(5 - next.difficulty) : '';
-    card.innerHTML = `
-      <div class="next-label">Up next</div>
-      <div class="next-title">${escHtml(next.title)}</div>
-      <div class="next-meta">${escHtml(next.id)}${stars ? ' · ' + stars : ''}</div>
-      <a href="challenge.html?id=${encodeURIComponent(next.id)}" class="btn btn-secondary btn-sm">Open case →</a>
-    `;
-    container.appendChild(card);
-  }
-
-  // ── Log Viewer Modal (multi-file) ─────────────────────────────────────────
-
-  const logsModal = qs('#logs-modal');
-  let activeLogFile = null; // { filename, logs }
-
-  function openLogFile(idx) {
-    activeLogFile = logFiles[idx];
-    const raw     = JSON.stringify(activeLogFile.logs, null, 2);
-    const codeEl  = qs('#log-code');
-    codeEl.textContent = raw;
-    // Re-highlight each open — remove old hljs class first
-    codeEl.removeAttribute('data-highlighted');
-    hljs.highlightElement(codeEl);
-    const count = Array.isArray(activeLogFile.logs) ? activeLogFile.logs.length : 1;
-    qs('#modal-filename').textContent  = activeLogFile.filename;
-    qs('#log-entry-count').textContent = `${count} log entr${count === 1 ? 'y' : 'ies'}`;
-    logsModal.classList.add('open');
-  }
-
-  // Attach listeners to dynamically created log buttons
-  qs('#log-files-list').addEventListener('click', e => {
-    const btn = e.target.closest('.btn-view-log');
-    if (btn) openLogFile(parseInt(btn.dataset.logIdx));
-  });
-
-  function closeModal() { logsModal.classList.remove('open'); }
-  qs('#close-logs-modal').addEventListener('click', closeModal);
-  logsModal.addEventListener('click', e => { if (e.target === logsModal) closeModal(); });
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') { closeModal(); closeShortcuts(); }
-  });
-
-  qs('#btn-copy-logs').addEventListener('click', async () => {
-    if (!activeLogFile) return;
-    const text = JSON.stringify(activeLogFile.logs, null, 2);
-    try {
-      await navigator.clipboard.writeText(text);
-      const btn = qs('#btn-copy-logs');
-      const orig = btn.textContent;
-      btn.textContent = 'Copied!';
-      setTimeout(() => { btn.textContent = orig; }, 1500);
-    } catch (err) {
-      // Fallback for browsers that block clipboard outside user gesture
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      ta.style.position = 'fixed'; ta.style.opacity = '0';
-      document.body.appendChild(ta); ta.select();
-      document.execCommand('copy');
-      document.body.removeChild(ta);
+    if (e.key === 'Escape') {
+      logViewer.close();
+      term.closeShortcuts();
     }
-  });
-
-  qs('#btn-download-logs').addEventListener('click', () => {
-    if (!activeLogFile) return;
-    const blob = new Blob([JSON.stringify(activeLogFile.logs, null, 2)], { type: 'application/json' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href     = url;
-    a.download = activeLogFile.filename;
-    a.click();
-    URL.revokeObjectURL(url);
-  });
-
-  // ── MongoDB Terminal ────────────────────────────────────────────────────────
-
-  // Build database map from mongo_collections: { dbName -> [col, ...] }
-  const dbMap = {};
-  (ch.mongo_collections || []).forEach(col => {
-    const db = col.database || 'cluster0';
-    if (!dbMap[db]) dbMap[db] = [];
-    dbMap[db].push(col);
-  });
-  const allDbs    = Object.keys(dbMap).sort();
-  let   currentDb = allDbs[0] || 'cluster0';
-
-  const outputEl  = document.getElementById('mongo-output');
-  const queryEl   = document.getElementById('mongo-query');
-  const exportBtn = document.getElementById('btn-export-json');
-  let   lastResult = null;
-
-  function updateDbTitle() {
-    const el = document.getElementById('mongo-db-title');
-    if (el) el.textContent = `Atlas Shell — ${currentDb}`;
-  }
-  updateDbTitle();
-
-  function currentCols() { return dbMap[currentDb] || []; }
-  function getCol(name)   { return currentCols().find(c => c.collection === name) || null; }
-
-  exportBtn.addEventListener('click', () => {
-    if (!lastResult) return;
-    const blob = new Blob([JSON.stringify(lastResult.data, null, 2)], { type: 'application/json' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href = url; a.download = lastResult.filename; a.click();
-    URL.revokeObjectURL(url);
-  });
-
-  function appendLine(text, type = 'result') {
-    const el = document.createElement('div');
-    if      (type === 'command') { el.className = 'mongo-line mongo-line-command'; el.textContent = '> ' + text; }
-    else if (type === 'count')   { el.className = 'mongo-line mongo-line-count';   el.textContent = text; }
-    else if (type === 'error')   { el.className = 'mongo-line mongo-line-error';   el.textContent = text; }
-    else if (type === 'system')  { el.className = 'mongo-line mongo-line-system';  el.innerHTML   = text; }
-    else                         { el.className = 'mongo-line mongo-line-result';  el.textContent = text; }
-    outputEl.appendChild(el);
-    outputEl.scrollTop = outputEl.scrollHeight;
-  }
-
-  // ── Filter engine ──────────────────────────────────────────────────────────
-
-  // ── Exec ──────────────────────────────────────────────────────────────────
-
-  function colError(name) {
-    appendLine(`MongoNamespaceError: collection '${name}' not found in database '${currentDb}'. Run db.getCollectionNames() to list available collections.`, 'error');
-  }
-
-  function runMongoQuery() {
-    const raw = queryEl.value.trim();
-    if (!raw) return;
-    pushHistory(raw);
-    appendLine(raw, 'command');
-    queryEl.value = '';
-
-    const p = parseCommand(raw);
-
-    // ── clear ─────────────────────────────────────────────────────────────────
-    if (p.cmd === 'clear') {
-      outputEl.innerHTML = `<div class="mongo-line mongo-line-system">Terminal cleared. Current database: <strong>${currentDb}</strong></div>`;
-      return;
-    }
-
-    // ── show dbs ──────────────────────────────────────────────────────────────
-    if (p.cmd === 'show_dbs') {
-      if (!allDbs.length) { appendLine('(no databases defined)', 'system'); return; }
-      allDbs.forEach(db => appendLine(db + (db === currentDb ? '\t(current)' : ''), 'result'));
-      return;
-    }
-
-    // ── use <db> ──────────────────────────────────────────────────────────────
-    if (p.cmd === 'use') {
-      currentDb = p.dbName;
-      updateDbTitle();
-      const cols = currentCols();
-      appendLine(`switched to db ${p.dbName}${cols.length ? '' : ' (no collections defined for this database)'}`, 'system');
-      return;
-    }
-
-    // ── db.getCollectionNames() ───────────────────────────────────────────────
-    if (p.cmd === 'getcollectionnames') {
-      const cols = currentCols();
-      appendLine(JSON.stringify(cols.map(c => c.collection)), 'result');
-      return;
-    }
-
-    // ── errors ────────────────────────────────────────────────────────────────
-    if (p.cmd === 'error')   { appendLine(p.msg, 'error'); return; }
-    if (p.cmd === 'unknown') {
-      appendLine(`Unrecognized command. See query reference ↗ for all supported commands.`, 'error');
-      return;
-    }
-
-    const col  = getCol(p.colName);
-    if (!col) { colError(p.colName); return; }
-    const docs = col.synthetic_docs || [];
-
-    // ── find ──────────────────────────────────────────────────────────────────
-    if (p.cmd === 'find') {
-      let results = docs.filter(d => matchesFilter(d, p.filter));
-      if (p.sort)       results = applySort(results, p.sort);
-      if (p.limit)      results = results.slice(0, p.limit);
-      results = applyProjection(results, p.projection);
-      const hasFilter = Object.keys(p.filter).length;
-      appendLine(`// ${results.length} document${results.length!==1?'s':''}${hasFilter ? ' matching filter' : ''}`, 'count');
-      if (results.length) {
-        appendLine(JSON.stringify(results, null, 2), 'result');
-        lastResult = { filename: `${col.collection}.json`, data: results };
-        exportBtn.disabled = false;
-      } else {
-        appendLine('// (no documents matched)', 'count');
-      }
-      return;
-    }
-
-    // ── findOne ───────────────────────────────────────────────────────────────
-    if (p.cmd === 'findone') {
-      let results = docs.filter(d => matchesFilter(d, p.filter));
-      if (p.sort) results = applySort(results, p.sort);
-      const doc = results[0] ? projectDoc(results[0], p.projection) : null;
-      if (!doc) { appendLine('null', 'result'); return; }
-      appendLine(JSON.stringify(doc, null, 2), 'result');
-      lastResult = { filename: `${col.collection}-findOne.json`, data: doc };
-      exportBtn.disabled = false;
-      return;
-    }
-
-    // ── countDocuments ────────────────────────────────────────────────────────
-    if (p.cmd === 'countdocuments') {
-      appendLine(String(docs.filter(d => matchesFilter(d, p.filter)).length), 'result');
-      return;
-    }
-
-    // ── distinct ──────────────────────────────────────────────────────────────
-    if (p.cmd === 'distinct') {
-      if (!p.fieldArg) { appendLine(`distinct requires a quoted field name, e.g. db.${col.collection}.distinct("status")`, 'error'); return; }
-      const values = [...new Set(docs.map(d => getPath(d, p.fieldArg)).filter(v => v !== undefined))];
-      appendLine(JSON.stringify(values, null, 2), 'result');
-      return;
-    }
-
-    appendLine(`Method '${p.cmd}' not supported. See query reference ↗ for all supported methods.`, 'error');
-  }
-
-  document.getElementById('btn-run-query').addEventListener('click', runMongoQuery);
-  document.getElementById('btn-clear-terminal').addEventListener('click', () => {
-    outputEl.innerHTML = `<div class="mongo-line mongo-line-system">Terminal cleared. Current database: <strong>${currentDb}</strong></div>`;
-  });
-
-  // ── Command history ────────────────────────────────────────────────────────
-  const cmdHistory = [];
-  let historyIdx = -1;
-
-  function pushHistory(cmd) {
-    const trimmed = cmd.trim();
-    if (!trimmed) return;
-    if (cmdHistory[cmdHistory.length - 1] !== trimmed) cmdHistory.push(trimmed);
-    historyIdx = -1;
-  }
-
-  // ── Tab autocomplete ───────────────────────────────────────────────────────
-  const SHELL_METHODS = ['find', 'findOne', 'countDocuments', 'distinct'];
-  let tabCandidates = [];
-  let tabIdx = -1;
-
-  function tryAutocomplete() {
-    const val = queryEl.value;
-
-    // db.<partial> — complete collection name
-    const colMatch = val.match(/^(db\.)(\w*)$/);
-    if (colMatch) {
-      const prefix  = colMatch[1];
-      const partial = colMatch[2].toLowerCase();
-      const names   = currentCols().map(c => c.collection);
-      const matches = names.filter(n => n.toLowerCase().startsWith(partial));
-      if (!matches.length) return false;
-      if (tabCandidates.join('\0') !== matches.join('\0')) { tabCandidates = matches; tabIdx = 0; }
-      else tabIdx = (tabIdx + 1) % tabCandidates.length;
-      queryEl.value = prefix + tabCandidates[tabIdx] + '.';
-      return true;
-    }
-
-    // db.<col>.<partial> — complete method name
-    const methMatch = val.match(/^(db\.\w+\.)(\w*)$/);
-    if (methMatch) {
-      const prefix  = methMatch[1];
-      const partial = methMatch[2].toLowerCase();
-      const matches = SHELL_METHODS.filter(m => m.toLowerCase().startsWith(partial));
-      if (!matches.length) return false;
-      if (tabCandidates.join('\0') !== matches.join('\0')) { tabCandidates = matches; tabIdx = 0; }
-      else tabIdx = (tabIdx + 1) % tabCandidates.length;
-      queryEl.value = prefix + tabCandidates[tabIdx] + '(';
-      return true;
-    }
-
-    return false;
-  }
-
-  queryEl.addEventListener('keydown', e => {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); runMongoQuery(); return; }
-
-    if (e.key === 'Tab') {
+    if (e.key === 'h' && !state.submitted && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
       e.preventDefault();
-      tryAutocomplete();
-      return;
+      hints.revealNext();
     }
-
-    if (e.key === 'ArrowUp') {
+    if (e.key === 's' && !state.submitted && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
       e.preventDefault();
-      if (cmdHistory.length === 0) return;
-      if (historyIdx === -1) historyIdx = cmdHistory.length - 1;
-      else if (historyIdx > 0) historyIdx--;
-      queryEl.value = cmdHistory[historyIdx];
-      setTimeout(() => queryEl.setSelectionRange(queryEl.value.length, queryEl.value.length), 0);
-      return;
-    }
-
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      if (historyIdx === -1) return;
-      if (historyIdx < cmdHistory.length - 1) { historyIdx++; queryEl.value = cmdHistory[historyIdx]; }
-      else { historyIdx = -1; queryEl.value = ''; }
-      return;
-    }
-
-    // Any non-modifier key resets both history browsing and tab state
-    if (!['Shift','Control','Meta','Alt','Tab'].includes(e.key)) {
-      historyIdx = -1;
-      tabCandidates = [];
-      tabIdx = -1;
+      qs('#btn-submit-all')?.click();
     }
   });
 
-  // ── Shortcuts modal ────────────────────────────────────────────────────────
-  const shortcutsModal = qs('#shortcuts-modal');
-  let shortcutsTrigger = null; // element that opened the modal, restored on close
-
-  function openShortcuts(trigger) {
-    shortcutsTrigger = trigger || document.activeElement;
-    shortcutsModal.classList.add('open');
-    // Focus the modal container — no visible ring, but screen readers land here and read the title
-    const modalEl = shortcutsModal.querySelector('.shortcuts-modal');
-    if (modalEl) modalEl.focus();
-  }
-
-  function closeShortcuts() {
-    shortcutsModal.classList.remove('open');
-    // Return focus to trigger
-    if (shortcutsTrigger) { shortcutsTrigger.focus(); shortcutsTrigger = null; }
-  }
-
-  // Focus trap: keep Tab inside the modal while open
-  shortcutsModal.addEventListener('keydown', e => {
-    if (!shortcutsModal.classList.contains('open')) return;
-    if (e.key !== 'Tab') return;
-    const focusable = [...shortcutsModal.querySelectorAll('button, [href], input, [tabindex]:not([tabindex="-1"])')];
-    if (!focusable.length) return;
-    const first = focusable[0], last = focusable[focusable.length - 1];
-    if (e.shiftKey) { if (document.activeElement === first) { e.preventDefault(); last.focus(); } }
-    else            { if (document.activeElement === last)  { e.preventDefault(); first.focus(); } }
-  });
-
-  qs('#btn-shortcuts').addEventListener('click', () => openShortcuts(qs('#btn-shortcuts')));
-  qs('#close-shortcuts-modal').addEventListener('click', closeShortcuts);
-  shortcutsModal.addEventListener('click', e => { if (e.target === shortcutsModal) closeShortcuts(); });
-
-  // Global ? key (but not when typing in the terminal)
-  document.addEventListener('keydown', e => {
-    if (e.key === '?' && document.activeElement !== queryEl) {
-      e.preventDefault();
-      shortcutsModal.classList.contains('open') ? closeShortcuts() : openShortcuts();
-    }
-  });
-
-
-  // ── Error helper ───────────────────────────────────────────────────────────
+  // ── Helpers ───────────────────────────────────────────────────────────────
 
   function showError() {
     qs('#page-loading').style.display = 'none';
     qs('#page-error').classList.remove('hidden');
   }
+
 
 })();
 </script>
