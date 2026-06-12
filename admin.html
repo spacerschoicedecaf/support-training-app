@@ -1473,7 +1473,15 @@ function renumberList(listId, labelPrefix) {
         fb.style.color = 'var(--text-danger)';
         return;
       }
-      rows.push({ ..._importParsed[idx], id: newId, active });
+      const ch = _importParsed[idx];
+      const primaryLog = (ch.log_files && ch.log_files.length) ? ch.log_files[0] : { filename: 'server-logs.json', logs: [] };
+      rows.push({
+        ...ch,
+        id: newId,
+        active,
+        server_logs:          primaryLog.logs,
+        server_logs_filename: primaryLog.filename,
+      });
     });
 
     if (!rows.length) { fb.textContent = 'No challenges selected.'; return; }
