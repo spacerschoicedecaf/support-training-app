@@ -462,8 +462,11 @@ import { initTerminal }  from './js/terminal.js';
   if (!challengeId) { showError(); return; }
 
   // Load challenge + user's existing submission + unlocked hints + existing note
+  // mongo_collections can be megabytes — fetched lazily on first terminal focus
+  const CHALLENGE_COLS = 'id, title, scenario, ticket_quote, arch_context, hints, questions, tags, red_herrings, log_files, screenshots, walkthrough, est_minutes, difficulty, variant_group, active';
+
   const [chRes, subRes, hintsRes, noteRes] = await Promise.all([
-    _supabase.from('challenges').select('*').eq('id', challengeId).eq('active', true).single(),
+    _supabase.from('challenges').select(CHALLENGE_COLS).eq('id', challengeId).eq('active', true).single(),
     _supabase.from('submissions').select('answers, score_earned, hints_cost, reflection, difficulty_rating').eq('user_id', ctx.user.id).eq('challenge_id', challengeId).maybeSingle(),
     _supabase.from('hint_unlocks').select('*').eq('user_id', ctx.user.id).eq('challenge_id', challengeId),
     _supabase.from('challenge_notes').select('note_text').eq('user_id', ctx.user.id).eq('challenge_id', challengeId).maybeSingle()
@@ -687,7 +690,7 @@ import { initTerminal }  from './js/terminal.js';
         p_answers:      answers,
       });
 
-      if (error || !data.success) {
+      if (error || !data?.success) {
         const msg = data?.error || error?.message || 'Submission failed';
         qs('#btn-submit-all').disabled = false;
         qs('#btn-submit-all').textContent = 'Submit all answers';
@@ -729,7 +732,16 @@ import { initTerminal }  from './js/terminal.js';
 
   // ── Terminal module ───────────────────────────────────────────────────────
 
-  const term = initTerminal({ mongoCollections: ch.mongo_collections || [] });
+  const term = initTerminal({
+    getCollections: async () => {
+      const { data } = await _supabase
+        .from('challenges')
+        .select('mongo_collections')
+        .eq('id', ch.id)
+        .single();
+      return data?.mongo_collections || [];
+    },
+  });
 
   // ── Global keyboard shortcuts ─────────────────────────────────────────────
 

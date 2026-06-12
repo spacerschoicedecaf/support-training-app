@@ -15,16 +15,39 @@ import {
   parseCommand,
 } from './mongo-engine.js';
 
-export function initTerminal({ mongoCollections }) {
-  // ── Build db map ────────────────────────────────────────────────────────────
-  const dbMap = {};
-  (mongoCollections || []).forEach(col => {
-    const db = col.database || 'cluster0';
-    if (!dbMap[db]) dbMap[db] = [];
-    dbMap[db].push(col);
-  });
-  const allDbs    = Object.keys(dbMap).sort();
-  let   currentDb = allDbs[0] || 'cluster0';
+export function initTerminal({ getCollections }) {
+  // ── DB map — built lazily on first terminal use ─────────────────────────────
+  let dbMap    = {};
+  let allDbs   = [];
+  let currentDb = 'cluster0';
+  let loaded   = false;
+  let loading  = false;
+
+  async function ensureLoaded() {
+    if (loaded || loading) return;
+    loading = true;
+    appendLine('Connecting to Atlas…', 'system');
+    try {
+      const cols = await getCollections();
+      cols.forEach(col => {
+        const db = col.database || 'cluster0';
+        if (!dbMap[db]) dbMap[db] = [];
+        dbMap[db].push(col);
+      });
+      allDbs    = Object.keys(dbMap).sort();
+      currentDb = allDbs[0] || 'cluster0';
+      loaded    = true;
+      updateDbTitle();
+      // Clear the connecting message and show ready state
+      const connecting = outputEl.querySelector('.mongo-line-system:last-child');
+      if (connecting?.textContent === 'Connecting to Atlas…') connecting.remove();
+      appendLine(`Connected. ${allDbs.length} database${allDbs.length !== 1 ? 's' : ''} available. Type <strong>show collections</strong> to begin.`, 'system');
+    } catch (e) {
+      appendLine('Failed to connect: ' + e.message, 'error');
+    } finally {
+      loading = false;
+    }
+  }
 
   // ── DOM refs ────────────────────────────────────────────────────────────────
   const outputEl  = document.getElementById('mongo-output');
@@ -61,7 +84,8 @@ export function initTerminal({ mongoCollections }) {
   }
 
   // ── Query execution ─────────────────────────────────────────────────────────
-  function runMongoQuery() {
+  async function runMongoQuery() {
+    await ensureLoaded();
     const raw = queryEl.value.trim();
     if (!raw) return;
     pushHistory(raw);
@@ -160,6 +184,9 @@ export function initTerminal({ mongoCollections }) {
     Object.assign(document.createElement('a'), { href: url, download: lastResult.filename }).click();
     URL.revokeObjectURL(url);
   });
+
+  // Trigger lazy load on first focus of the textarea
+  queryEl.addEventListener('focus', ensureLoaded, { once: true });
 
   document.getElementById('btn-run-query').addEventListener('click', runMongoQuery);
   document.getElementById('btn-clear-terminal').addEventListener('click', () => {
