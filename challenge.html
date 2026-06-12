@@ -551,7 +551,15 @@ import { initTerminal }  from './js/terminal.js';
   let pageLoadTime = Date.now();
   if (!state.submitted) {
     const { data: startedAt } = await _supabase.rpc('record_challenge_start', { p_challenge_id: ch.id });
-    if (startedAt) pageLoadTime = new Date(startedAt).getTime();
+    if (startedAt) {
+      const ts = new Date(startedAt).getTime();
+      // Defensive cap: if the stored start time is more than 24 h ago it's
+      // likely stale (e.g. from before an admin reset that didn't clear
+      // challenge_starts). Treat it as a fresh start rather than showing
+      // thousands of elapsed minutes.
+      const MAX_SESSION_MS = 24 * 60 * 60 * 1000;
+      pageLoadTime = (Date.now() - ts) > MAX_SESSION_MS ? Date.now() : ts;
+    }
   }
 
   const timer = createTimer({
