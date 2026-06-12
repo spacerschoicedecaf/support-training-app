@@ -216,19 +216,6 @@ export function initQuestions({ challenge, ctx, getSubmitted, submission, getHin
       body.appendChild(row);
     }
 
-    if (solveMs != null) {
-      const mins = Math.floor(solveMs / 60000);
-      const secs = Math.floor((solveMs % 60000) / 1000);
-      const row  = document.createElement('div');
-      row.className = 'debrief-row';
-      row.innerHTML = `
-        <span class="debrief-row-label">Time to solve</span>
-        <span class="debrief-row-result" style="color:var(--text-secondary);">
-          ${mins > 0 ? `${mins}m ${secs}s` : `${secs}s`}
-        </span>`;
-      body.appendChild(row);
-    }
-
     loadNextChallenge(body);
     showWalkthrough();
   }

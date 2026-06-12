@@ -252,15 +252,6 @@
     <!-- ── Right: Analysis Column ──────────────────────────────────────────── -->
     <div class="right-panel">
 
-      <!-- Solve timer (hidden once submitted) -->
-      <div id="solve-timer-card" class="score-preview" style="display:none;align-items:center;justify-content:space-between;">
-        <span style="font-family:var(--font-mono);font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;">Time</span>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span id="solve-timer-display" style="font-family:var(--font-mono);font-size:17px;font-weight:700;color:var(--text-primary);letter-spacing:1px;">0:00</span>
-          <button id="solve-timer-btn" title="Pause timer" style="background:none;border:none;cursor:pointer;padding:2px 4px;color:var(--text-muted);font-size:13px;line-height:1;" aria-label="Pause timer">⏸</button>
-        </div>
-      </div>
-
       <!-- Score preview -->
       <div class="score-preview">
         <span>Potential score</span>
@@ -439,7 +430,6 @@
 <script type="module">
 // ── Modules ──────────────────────────────────────────────────────────────────
 import { escHtml, qs }   from './js/challenge-utils.js';
-import { createTimer }   from './js/timer.js';
 import { initNotes }     from './js/notes.js';
 import { initReflection } from './js/reflection.js';
 import { initLogViewer } from './js/log-viewer.js';
@@ -450,7 +440,6 @@ import { initTerminal }  from './js/terminal.js';
 // ── Main ─────────────────────────────────────────────────────────────────────
 
 (async () => {
-  const _returnedAt = Date.now(); // capture before any awaits — used to exclude page-load time from away calculation
   const ctx = await Auth.requireAuth();
   if (!ctx) return;
 
@@ -546,31 +535,6 @@ import { initTerminal }  from './js/terminal.js';
     submitted: !!submission,
     hintsCost: (hintsRes.data || []).reduce((s, h) => s + h.cost, 0),
   };
-
-  // ── Timer module ──────────────────────────────────────────────────────────
-  let pageLoadTime = Date.now();
-  if (!state.submitted) {
-    const { data: startedAt } = await _supabase.rpc('record_challenge_start', { p_challenge_id: ch.id });
-    if (startedAt) {
-      const ts = new Date(startedAt).getTime();
-      // Defensive cap: if the stored start time is more than 24 h ago it's
-      // likely stale (e.g. from before an admin reset that didn't clear
-      // challenge_starts). Treat it as a fresh start rather than showing
-      // thousands of elapsed minutes.
-      const MAX_SESSION_MS = 24 * 60 * 60 * 1000;
-      pageLoadTime = (Date.now() - ts) > MAX_SESSION_MS ? Date.now() : ts;
-    }
-  }
-
-  const timer = createTimer({
-    challengeId:  ch.id,
-    userId:       ctx.user.id,
-    pageLoadTime,
-    returnedAt:   _returnedAt,
-    getSubmitted: () => state.submitted,
-  });
-
-  if (!state.submitted) timer.start();
 
   // ── Populate static content ────────────────────────────────────────────────
 
@@ -713,11 +677,7 @@ import { initTerminal }  from './js/terminal.js';
         updateScorePreview();
       }
 
-      const solveMs = timer.getElapsedMs();
-      localStorage.removeItem(`sturnus_away_${ch.id}_${ctx.user.id}`);
-      timer.stop();
-
-      q.showDebrief(data.graded, data.score_earned, solveMs);
+      q.showDebrief(data.graded, data.score_earned, null);
       initReflection({ challengeId: ch.id, existingReflection: null, existingRating: null });
     },
   });
