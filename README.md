@@ -115,7 +115,7 @@ Admins access `/admin.html`. Non-admins are redirected.
 
 **Add / Edit** — form covering all challenge fields: ID, title, scenario, ticket quote, architecture context, red herrings, server logs (multi-file), MongoDB collections (multi-database), hints, questions, walkthrough, estimated solve time, skill tags, intended difficulty, and variant group.
 
-**Import** — paste a JSON array of challenges (or upload a `.json` file) to bulk-import. Validates structure, detects ID conflicts, and lets you rename placeholder IDs before saving. All imported challenges default to inactive.
+**Import** — paste a JSON array of challenges (or upload a `.json` file) to bulk-import. Validates structure and auto-assigns the next available `TICKET-NNN` ID to any challenge using the `TICKET-XXXX` placeholder — multiple placeholders in one batch increment sequentially. IDs are still editable in the preview before confirming. All imported challenges default to inactive.
 
 **Challenge table** — sortable by ID, title, difficulty, community rating, or solves. Shows variant group badge, intended difficulty, community difficulty rating, and solve count per challenge.
 
@@ -154,13 +154,6 @@ Send a magic-link invite by email. The recipient sets their handle on first clic
 
 ---
 
-## Challenge Generator Skill
-
-A Claude skill (`sturnus-challenge-generator.skill`) guides you through turning a real support incident into a training challenge. It asks for the incident, root cause, a red herring, and the teaching goal — then produces a plain-English review and an import-ready JSON array you can paste directly into the bulk import panel.
-
-Install the skill in Claude Cowork → Settings → Capabilities → Skills. See the admin guide (`/guide.html`) for usage instructions.
-
----
 
 ## Running Locally
 
