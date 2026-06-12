@@ -553,6 +553,20 @@ function qsAll(s) { return document.querySelectorAll(s); }
   let timerPaused    = false;
   let timerPausedAt  = null;   // Date.now() when pause started
   let timerPausedMs  = 0;      // total ms spent paused
+
+  // Recover time spent navigating away and back.
+  // On beforeunload we save the departure timestamp; here we add the gap.
+  const _awayKey = `sturnus_away_${ch.id}_${ctx.user.id}`;
+  if (!submitted) {
+    const _awayRaw = localStorage.getItem(_awayKey);
+    if (_awayRaw) {
+      try {
+        const { leftAt } = JSON.parse(_awayRaw);
+        if (leftAt) timerPausedMs += Math.max(0, Date.now() - leftAt);
+      } catch(e) {}
+      localStorage.removeItem(_awayKey);
+    }
+  }
   let timerInterval  = null;
 
   function getElapsedMs() {
@@ -606,6 +620,13 @@ function qsAll(s) { return document.querySelectorAll(s); }
     });
     window.addEventListener('blur',  () => { if (!submitted) pauseTimer(); });
     window.addEventListener('focus', () => { if (!submitted) resumeTimer(); });
+
+    // Record departure time so we can exclude navigation-away time on return
+    window.addEventListener('beforeunload', () => {
+      if (!submitted) {
+        localStorage.setItem(_awayKey, JSON.stringify({ leftAt: Date.now() }));
+      }
+    });
   }
 
   function stopTimerUI() {
@@ -1037,6 +1058,7 @@ function qsAll(s) { return document.querySelectorAll(s); }
     }
 
     const solveMs = getElapsedMs();
+    localStorage.removeItem(_awayKey);
     stopTimerUI();
     showDebrief(data.graded, data.score_earned, solveMs);
     if (data.first_blood) showGlobalAlert('Initial Response — you solved this case before anyone else.');
