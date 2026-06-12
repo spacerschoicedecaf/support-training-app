@@ -13,9 +13,9 @@
   <link id="theme-css" rel="stylesheet" href="">
   <script>(function(){try{var d=(window.location.hostname.includes("vhs")||window.location.hostname.endsWith("bekind.support"))?"vhs":"sturnus";var t=localStorage.getItem("lastTheme")||d;if(t==="vhs")document.getElementById("theme-css").href="css/theme-vhs.css";document.documentElement.dataset.themeLoading="1";var fi=document.createElement("link");fi.rel="icon";fi.type="image/svg+xml";fi.href=t==="vhs"?"favicon-vhs.svg":"favicon-sturnus.svg";document.head.appendChild(fi);}catch(e){}})()</script>
   <script src="js/faro.js"></script>
-  <!-- highlight.js for log syntax coloring -->
+  <!-- highlight.js for log syntax coloring — deferred, only needed when log modal opens -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" defer></script>
   <style>
     .challenge-layout {
       display: grid;

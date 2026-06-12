@@ -9,7 +9,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>STURNUS — Dashboard</title>
   <link rel="stylesheet" href="css/app.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.30.0/tabler-icons.min.css">
   <!-- Theme pre-loader: runs before first paint to prevent flash -->
   <link id="theme-css" rel="stylesheet" href="">
   <script>(function(){try{var d=(window.location.hostname.includes("vhs")||window.location.hostname.endsWith("bekind.support"))?"vhs":"sturnus";var t=localStorage.getItem("lastTheme")||d;if(t==="vhs")document.getElementById("theme-css").href="css/theme-vhs.css";document.documentElement.dataset.themeLoading="1";var fi=document.createElement("link");fi.rel="icon";fi.type="image/svg+xml";fi.href=t==="vhs"?"favicon-vhs.svg":"favicon-sturnus.svg";document.head.appendChild(fi);}catch(e){}})()</script>
@@ -138,7 +138,7 @@ function escHtml(str) {
   }
 
   const cached = getCachedChallenges();
-  const [challengesRes, submissionsRes, communityDiffRes] = await Promise.all([
+  const [challengesRes, submissionsRes, communityDiffRes, lbRes] = await Promise.all([
     cached
       ? Promise.resolve({ data: cached, error: null })
       : _supabase
@@ -153,7 +153,14 @@ function escHtml(str) {
     _supabase
       .from('submissions')
       .select('challenge_id, difficulty_rating')
-      .not('difficulty_rating', 'is', null)
+      .not('difficulty_rating', 'is', null),
+    _supabase
+      .from('profiles')
+      .select('id, handle, score')
+      .eq('theme', ctx.profile.theme)
+      .neq('role', 'admin')
+      .order('score', { ascending: false })
+      .limit(20)
   ]);
 
   if (!cached && challengesRes.data) setCachedChallenges(challengesRes.data);
@@ -432,13 +439,7 @@ function escHtml(str) {
   }
 
   // ── Leaderboard ─────────────────────────────────────────────────────────────
-  const { data: lb } = await _supabase
-    .from('profiles')
-    .select('id, handle, score')
-    .eq('theme', ctx.profile.theme)
-    .neq('role', 'admin')
-    .order('score', { ascending: false })
-    .limit(20);
+  const lb = lbRes.data;
 
   document.getElementById('lb-loading').style.display = 'none';
 
