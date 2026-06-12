@@ -578,23 +578,31 @@ function qsAll(s) { return document.querySelectorAll(s); }
       if (!timerPaused) display.textContent = fmtTimer(getElapsedMs());
     }, 500);
 
-    btn.addEventListener('click', () => {
-      if (!timerPaused) {
-        // Pause
-        timerPaused   = true;
-        timerPausedAt = Date.now();
-        btn.textContent   = '▶';
-        btn.title         = 'Resume timer';
-        btn.setAttribute('aria-label', 'Resume timer');
-      } else {
-        // Resume
-        timerPausedMs += Date.now() - timerPausedAt;
-        timerPaused    = false;
-        timerPausedAt  = null;
-        btn.textContent   = '⏸';
-        btn.title         = 'Pause timer';
-        btn.setAttribute('aria-label', 'Pause timer');
-      }
+    function pauseTimer() {
+      if (timerPaused) return;
+      timerPaused   = true;
+      timerPausedAt = Date.now();
+      btn.textContent = '▶';
+      btn.title       = 'Resume timer';
+      btn.setAttribute('aria-label', 'Resume timer');
+    }
+
+    function resumeTimer() {
+      if (!timerPaused) return;
+      timerPausedMs += Date.now() - timerPausedAt;
+      timerPaused    = false;
+      timerPausedAt  = null;
+      btn.textContent = '⏸';
+      btn.title       = 'Pause timer';
+      btn.setAttribute('aria-label', 'Pause timer');
+    }
+
+    btn.addEventListener('click', () => timerPaused ? resumeTimer() : pauseTimer());
+
+    // Auto-pause when tab is hidden, auto-resume when visible again
+    document.addEventListener('visibilitychange', () => {
+      if (submitted) return;
+      document.hidden ? pauseTimer() : resumeTimer();
     });
   }
 
